@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -30,6 +31,23 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
+
+// iniDataContainertype is a container of initial data to run server.
+type iniDataContainer struct {
+	port     int
+	ip       string
+	certFile string
+	keyFile  string
+}
+
+// init parses cmd line arguments into iniDataContainertype.
+func (d *iniDataContainer) init() {
+	flag.IntVar(&d.port, "p", 7777, "port")
+	flag.StringVar(&d.ip, "a", "localhost", "server's host address")
+	flag.StringVar(&d.certFile, "c", "../cert/server.crt", "tls certificate file")
+	flag.StringVar(&d.keyFile, "k", "../cert/server.key", "tls key file")
+	flag.Parse()
+}
 
 // private type for Context keys.
 type contextKey int
@@ -72,8 +90,11 @@ func unaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServ
 }
 
 func main() {
+	initData := &iniDataContainer{}
+	initData.init()
+
 	// create a listener on TCP port 7777.
-	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", "localhost", 7777))
+	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", initData.ip, initData.port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
@@ -82,7 +103,7 @@ func main() {
 	defer s.Release()
 
 	// Create the TLS credentials.
-	creds, err := credentials.NewServerTLSFromFile("../cert/server.crt", "../cert/server.key")
+	creds, err := credentials.NewServerTLSFromFile(initData.certFile, initData.keyFile)
 	if err != nil {
 		log.Fatalf("could not load TLS keys: %s", err)
 	}
