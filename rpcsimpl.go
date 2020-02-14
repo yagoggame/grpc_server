@@ -31,12 +31,12 @@ import (
 	// 	"log"
 )
 
-// Server represents the gRPC server
+// Server represents the gRPC server.
 type Server struct {
 	pool gomaster.GamersPool
 }
 
-// idFromCtx - gets id as integer from context
+// idFromCtx gets id as integer from context.
 func idFromCtx(ctx context.Context) (id int, err error) {
 	iid := ctx.Value(clientIDKey)
 	if iid == nil {
@@ -56,7 +56,7 @@ func idFromCtx(ctx context.Context) (id int, err error) {
 	return id, nil
 }
 
-// EnterTheLobby - puts a player into the lobby
+// EnterTheLobby puts a player into the lobby.
 func (s *Server) EnterTheLobby(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
 	//get name
 	md, ok := metadata.FromIncomingContext(ctx)
@@ -92,7 +92,7 @@ func (s *Server) EnterTheLobby(ctx context.Context, in *api.EmptyMessage) (*api.
 	return &api.EmptyMessage{}, nil
 }
 
-// LeaveTheLobby - deletes a player from the lobby
+// LeaveTheLobby deletes a player from the lobby.
 func (s *Server) LeaveTheLobby(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
 	id, err := idFromCtx(ctx)
 	if err != nil {
@@ -112,7 +112,7 @@ func (s *Server) LeaveTheLobby(ctx context.Context, in *api.EmptyMessage) (*api.
 	return &api.EmptyMessage{}, nil
 }
 
-// JoinTheGame - joins a player to another player or start a game and wait of another player
+// JoinTheGame joins a player to another player or starts a game and waits of another player.
 func (s *Server) JoinTheGame(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
 	id, err := idFromCtx(ctx)
 	if err != nil {
@@ -135,12 +135,12 @@ func (s *Server) JoinTheGame(ctx context.Context, in *api.EmptyMessage) (*api.Em
 	}
 	log.Printf("gamer %s joined the game, awaiting of other player...", gamer)
 
-	// if gamer joined to a game, he must wait when all preparation and other gamer are ready
+	// if gamer joined to a game, he must wait when all preparation and other gamer are ready.
 	if err := gamer.InGame.WaitBegin(ctx, gamer); err != nil {
 		err = status.Errorf(codes.Internal, "failed to wait game for gamer %v: %s", gamer, err)
 		log.Printf("WaitTheGame error: %s", err)
-		//gamer joined a game, so it's must be released
-		if errl := s.pool.ReleaseGame(id); errl!=nil {
+		//gamer joined a game, so it's must be released.
+		if errl := s.pool.ReleaseGame(id); errl != nil {
 			err = status.Errorf(codes.Internal, "gamer %v: failed to Release game: %q, after failed game awaiting: %q:", gamer, errl, err)
 			log.Printf("WaitTheGame error: %s", err)
 			return &api.EmptyMessage{}, err
@@ -153,7 +153,7 @@ func (s *Server) JoinTheGame(ctx context.Context, in *api.EmptyMessage) (*api.Em
 	return &api.EmptyMessage{}, nil
 }
 
-// WaitTheTurn - if both gamers joined to a game, they must wait of their turn
+// WaitTheTurn waits for gamers turn.
 func (s *Server) WaitTheTurn(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
 	id, err := idFromCtx(ctx)
 	if err != nil {
@@ -180,7 +180,8 @@ func (s *Server) WaitTheTurn(ctx context.Context, in *api.EmptyMessage) (*api.Em
 	return &api.EmptyMessage{}, nil
 }
 
-// LeaveTheGame - leave the game, but not a lobby, so JoinTheGame can be invoked again
+// LeaveTheGame exits the gamer from the game.
+// Gamer stays in lobby, so JoinTheGame can be invoked again.
 func (s *Server) LeaveTheGame(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
 	id, err := idFromCtx(ctx)
 	if err != nil {
@@ -189,8 +190,8 @@ func (s *Server) LeaveTheGame(ctx context.Context, in *api.EmptyMessage) (*api.E
 		return &api.EmptyMessage{}, err
 	}
 
-	//leave the gamer's game, if it is
-	if err := s.pool.ReleaseGame(id); err!=nil {
+	//leave the gamer's game, if it is.
+	if err := s.pool.ReleaseGame(id); err != nil {
 		err = status.Errorf(codes.Internal, "gamer with id %d: failed to Release game: %q", id, err)
 		log.Printf("WaitTheGame error: %s", err)
 		return &api.EmptyMessage{}, err
@@ -200,7 +201,7 @@ func (s *Server) LeaveTheGame(ctx context.Context, in *api.EmptyMessage) (*api.E
 	return &api.EmptyMessage{}, nil
 }
 
-// MakeTurn - tries to make a turn with data of "in" message
+// MakeTurn tries to make a turn with data of "in" message.
 func (s *Server) MakeTurn(ctx context.Context, in *api.TurnMessage) (*api.EmptyMessage, error) {
 	id, err := idFromCtx(ctx)
 	if err != nil {
@@ -216,7 +217,7 @@ func (s *Server) MakeTurn(ctx context.Context, in *api.TurnMessage) (*api.EmptyM
 		return &api.EmptyMessage{}, err
 	}
 
-	//leave the gamer's game, if it is
+	//leave the gamer's game, if it is.
 	if err := gamer.InGame.MakeTurn(gamer, &game.TurnData{X: int(in.X), Y: int(in.Y)}); err != nil {
 		if err, ok := err.(*game.TurnError); ok {
 			err := status.Errorf(codes.InvalidArgument, "%s", err)
@@ -232,13 +233,13 @@ func (s *Server) MakeTurn(ctx context.Context, in *api.TurnMessage) (*api.EmptyM
 	return &api.EmptyMessage{}, nil
 }
 
-// newServer - Create a new Server instance
-// after using, it mast be destroyed by Release call
+// newServer Creates a new Server instance.
+// After using, it mast be destroyed by Release call.
 func newServer() *Server {
 	return &Server{pool: gomaster.NewGamersPool()}
 }
 
-// Release - sop the server intity
+// Release - sop the server intity.
 func (s *Server) Release() {
 	s.pool.Release()
 }

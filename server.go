@@ -31,14 +31,15 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// private type for Context keys
+// private type for Context keys.
 type contextKey int
 
+// set of context keys
 const (
 	clientIDKey contextKey = iota
 )
 
-// authenticateAgent - checks the client credentials
+// authenticateAgent checks the client credentials.
 func authenticateClient(ctx context.Context, s *Server) (string, error) {
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
 		clientLogin := strings.Join(md["login"], "")
@@ -54,7 +55,7 @@ func authenticateClient(ctx context.Context, s *Server) (string, error) {
 	return "", status.Error(codes.Unauthenticated, "missing credentials")
 }
 
-// unaryInterceptor - calls authenticateClient with current context
+// unaryInterceptor calls authenticateClient with current context.
 func unaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	s, ok := info.Server.(*Server)
 	if !ok {
@@ -71,27 +72,27 @@ func unaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServ
 }
 
 func main() {
-	// create a listener on TCP port 7777
+	// create a listener on TCP port 7777.
 	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", "localhost", 7777))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	// create a server instance
+	// create a server instance.
 	s := newServer()
 	defer s.Release()
 
-	// Create the TLS credentials
+	// Create the TLS credentials.
 	creds, err := credentials.NewServerTLSFromFile("../cert/server.crt", "../cert/server.key")
 	if err != nil {
 		log.Fatalf("could not load TLS keys: %s", err)
 	}
-	// Create an array of gRPC options with the credentials
+	// Create an array of gRPC options with the credentials.
 	opts := []grpc.ServerOption{grpc.Creds(creds),
 		grpc.UnaryInterceptor(unaryInterceptor)}
 
-	// create a gRPC server object
+	// create a gRPC server object.
 	grpcServer := grpc.NewServer(opts...)
-	// attach the Ping service to the server
+	// attach the Ping service to the server.
 	api.RegisterGoGameServer(grpcServer, s)
 	// start the server
 	if err := grpcServer.Serve(lis); err != nil {
