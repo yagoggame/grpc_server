@@ -93,29 +93,25 @@ func main() {
 	initData := &iniDataContainer{}
 	initData.init()
 
-	// create a listener on TCP port 7777.
 	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", initData.ip, initData.port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	// create a server instance.
+
 	s := newServer()
 	defer s.Release()
 
-	// Create the TLS credentials.
 	creds, err := credentials.NewServerTLSFromFile(initData.certFile, initData.keyFile)
 	if err != nil {
 		log.Fatalf("could not load TLS keys: %s", err)
 	}
-	// Create an array of gRPC options with the credentials.
+
 	opts := []grpc.ServerOption{grpc.Creds(creds),
 		grpc.UnaryInterceptor(unaryInterceptor)}
 
-	// create a gRPC server object.
 	grpcServer := grpc.NewServer(opts...)
-	// attach the Ping service to the server.
 	api.RegisterGoGameServer(grpcServer, s)
-	// start the server
+
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %s", err)
 	}

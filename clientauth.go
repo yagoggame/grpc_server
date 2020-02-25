@@ -33,7 +33,7 @@ var users map[string]user = map[string]user{
 	"Nick": user{"bbb", "2"},
 }
 
-//checkClientEntry - checks user registration
+//checkClientEntry checks user registration
 func checkClientEntry(login, password string) (id string, err error) {
 	usr, ok := users[login]
 	if !ok {

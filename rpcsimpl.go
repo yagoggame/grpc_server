@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"strconv"
 	"strings"
@@ -28,7 +29,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	// 	"log"
 )
 
 // Server represents the gRPC server.
@@ -45,7 +45,7 @@ func idFromCtx(ctx context.Context) (id int, err error) {
 
 	sid, ok := iid.(string)
 	if !ok {
-		return -1, status.Errorf(codes.Internal, "Unpredicted type %T of interface value", iid)
+		return -1, status.Errorf(codes.Internal, "unpredicted type %T of interface value", iid)
 	}
 
 	id, err = strconv.Atoi(sid)
@@ -58,37 +58,20 @@ func idFromCtx(ctx context.Context) (id int, err error) {
 
 // EnterTheLobby puts a player into the lobby.
 func (s *Server) EnterTheLobby(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
-	//get name
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		err := status.Errorf(codes.Unknown, "can't get metadata")
-		log.Printf("EnterTheLobby error: %s", err)
-		return &api.EmptyMessage{}, err
-	}
-	name := strings.Join(md["login"], "")
-	if len(name) < 1 {
-		err := status.Errorf(codes.Unknown, "name of a player is to short to be accepted by a lobby")
-		log.Printf("EnterTheLobby error: %s", err)
-		return &api.EmptyMessage{}, err
-	}
-
-	id, err := idFromCtx(ctx)
+	gamer, err := userFromContext(ctx)
 	if err != nil {
-		err = status.Errorf(codes.Unknown, "can't get gamer's %s ID: %s", name, err)
+		log.Printf("EnterTheLobby error: %s", err)
+		return &api.EmptyMessage{}, err
+	}
+
+	if err := s.pool.AddGamer(gamer); err != nil {
+		err = status.Errorf(codes.Internal, "can't add gamer %s to the Lobby: %s", gamer, err)
 		log.Printf("EnterTheLobby error: %s", err)
 
 		return &api.EmptyMessage{}, err
 	}
 
-	gamer := game.Gamer{Name: name, Id: id}
-	if err := s.pool.AddGamer(&gamer); err != nil {
-		err = status.Errorf(codes.Internal, "can't add gamer %s to the Lobby: %s", &gamer, err)
-		log.Printf("EnterTheLobby error: %s", err)
-
-		return &api.EmptyMessage{}, err
-	}
-
-	log.Printf("gamer %s added to the Lobby", &gamer)
+	log.Printf("gamer %s added to the Lobby", gamer)
 	return &api.EmptyMessage{}, nil
 }
 
@@ -121,35 +104,17 @@ func (s *Server) JoinTheGame(ctx context.Context, in *api.EmptyMessage) (*api.Em
 		return &api.EmptyMessage{}, err
 	}
 
-	gamer, err := s.pool.GetGamer(id)
-	if err != nil {
-		err = status.Errorf(codes.Internal, "failed to get a gamer with id %d: %s", id, err)
-		log.Printf("WaitTheGame error: %s", err)
+	if err := s.joinGamer(id); err != nil {
+		log.Printf("joinGamer error: %s", err)		
 		return &api.EmptyMessage{}, err
 	}
-
-	if err = s.pool.JoinGame(id); err != nil {
-		err = status.Errorf(codes.Internal, "failed to join the game for gamer %s: %s", gamer, err)
-		log.Printf("JoinTheGame error: %s", err)
+	
+	if err := s.waitGame(ctx, id); err != nil {
+		log.Printf("waitGame error: %s", err)		
 		return &api.EmptyMessage{}, err
 	}
-	log.Printf("gamer %s joined the game, awaiting of other player...", gamer)
-
-	// if gamer joined to a game, he must wait when all preparation and other gamer are ready.
-	if err := gamer.InGame.WaitBegin(ctx, gamer); err != nil {
-		err = status.Errorf(codes.Internal, "failed to wait game for gamer %v: %s", gamer, err)
-		log.Printf("WaitTheGame error: %s", err)
-		//gamer joined a game, so it's must be released.
-		if errl := s.pool.ReleaseGame(id); errl != nil {
-			err = status.Errorf(codes.Internal, "gamer %v: failed to Release game: %q, after failed game awaiting: %q:", gamer, errl, err)
-			log.Printf("WaitTheGame error: %s", err)
-			return &api.EmptyMessage{}, err
-		}
-		log.Printf("gamer %s left his game", gamer)
-		return &api.EmptyMessage{}, err
-	}
-	log.Printf("Gamer's %s game has been begun", gamer)
-
+	
+	log.Printf("game for gamer with id %d has been begun", id)
 	return &api.EmptyMessage{}, nil
 }
 
@@ -170,7 +135,7 @@ func (s *Server) WaitTheTurn(ctx context.Context, in *api.EmptyMessage) (*api.Em
 	}
 
 	log.Printf("Gamer %s waiting for his turn...", gamer)
-	if err := gamer.InGame.WaitTurn(ctx, gamer); err != nil {
+	if err := gamer.InGame.WaitTurn(ctx, gamer.ID); err != nil {
 		err = status.Errorf(codes.Internal, "failed to wait turn for gamer %v: %s", gamer, err)
 		log.Printf("WaitTheTurn error: %s", err)
 		return &api.EmptyMessage{}, err
@@ -217,14 +182,9 @@ func (s *Server) MakeTurn(ctx context.Context, in *api.TurnMessage) (*api.EmptyM
 		return &api.EmptyMessage{}, err
 	}
 
-	//leave the gamer's game, if it is.
-	if err := gamer.InGame.MakeTurn(gamer, &game.TurnData{X: int(in.X), Y: int(in.Y)}); err != nil {
-		if err, ok := err.(*game.TurnError); ok {
-			err := status.Errorf(codes.InvalidArgument, "%s", err)
-			log.Printf("gamer %s made a wrong turn: %s", gamer, err)
-			return &api.EmptyMessage{}, err
-		}
-		err = status.Errorf(codes.Internal, "fail on  MakeTurnGame for gamer %s : %s", gamer, err)
+	err = makeTurn(gamer, 
+					&game.TurnData{X: int(in.X), Y: int(in.Y)})
+	if err !=nil {
 		log.Printf("MakeTurn error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
@@ -242,4 +202,70 @@ func newServer() *Server {
 // Release - sop the server intity.
 func (s *Server) Release() {
 	s.pool.Release()
+}
+
+func userFromContext(ctx context.Context) (gamer *game.Gamer, err error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		err := status.Errorf(codes.Unknown, "can't get metadata")
+		return nil, err
+	}
+	name := strings.Join(md["login"], "")
+	if len(name) < 1 {
+		err := status.Errorf(codes.Unknown, "name of a player is to short to be accepted by a lobby")
+		return nil, err
+	}
+
+	id, err := idFromCtx(ctx)
+	if err != nil {
+		err = status.Errorf(codes.Unknown, "can't get gamer's %s ID: %s", name, err)
+		return nil, err
+	}
+
+	return &game.Gamer{Name: name, ID: id}, nil
+}
+
+func (s *Server) joinGamer(id int) error {
+	gamer, err := s.pool.GetGamer(id)
+	if err != nil {
+		err = status.Errorf(codes.Internal, "failed to get a gamer with id %d: %s", id, err)
+		return err
+	}
+	
+	if err := s.pool.JoinGame(gamer.ID); err != nil {
+		err = status.Errorf(codes.Internal, "failed to join the game for gamer %s: %s", gamer, err)
+		return err
+	}
+	return nil
+}
+
+func (s *Server) waitGame(ctx context.Context, id int) error {
+	gamer, err := s.pool.GetGamer(id)
+	if err != nil {
+		err = status.Errorf(codes.Internal, "failed to get a gamer with id %d: %s", id, err)
+		return err
+	}
+	
+	if err := gamer.InGame.WaitBegin(ctx, gamer.ID); err != nil {
+		err = status.Errorf(codes.Internal, "failed to wait game for gamer %v: %s", gamer, err)
+		//gamer joined a game, so it's must be released.
+		if errl := s.pool.ReleaseGame(gamer.ID); errl != nil {
+			err = status.Errorf(codes.Internal, "gamer %v: failed to Release game: %q, after failed game awaiting: %q:", gamer, errl, err)
+			return err
+		}
+		return err
+	}
+	return nil
+}
+
+func makeTurn(gamer *game.Gamer, move *game.TurnData) error {
+	if err := gamer.InGame.MakeTurn(gamer.ID, move); err != nil {
+		if errors.Is(err, game.ErrWrongTurn) {
+			err := status.Errorf(codes.InvalidArgument, "%s", err)
+			return err
+		}
+		err = status.Errorf(codes.Internal, "fail on  MakeTurnGame for gamer %s : %s", gamer, err)
+		return err
+	}
+	return nil
 }

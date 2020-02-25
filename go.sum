@@ -16,6 +16,8 @@ github.com/yagoggame/api v0.0.0-20200206171429-e2a148bdae84 h1:rR6HrGipNGv+SxxuT
 github.com/yagoggame/api v0.0.0-20200206171429-e2a148bdae84/go.mod h1:0dFw2pe+KDibAbQFh3L42zXqQULGlxQsOCbSgJzTOUE=
 github.com/yagoggame/gomaster v0.0.0-20200211133124-26842cc5bc9e h1:RTsKz7vrD/8/qyjoUX89dundLHSwid0NE0AZVBGIIu4=
 github.com/yagoggame/gomaster v0.0.0-20200211133124-26842cc5bc9e/go.mod h1:5emBd2XObkgeUug/oALNQqVsgifP81zspVk/TBI0pxc=
+github.com/yagoggame/gomaster v0.0.0-20200225144041-735d8cd69026 h1:PZy6B3C/wBxJrouImrVS4eoLeg6qwi8nbSaXVeazdw8=
+github.com/yagoggame/gomaster v0.0.0-20200225144041-735d8cd69026/go.mod h1:5emBd2XObkgeUug/oALNQqVsgifP81zspVk/TBI0pxc=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/exp v0.0.0-20190121172915-509febef88a4/go.mod h1:CJ0aWSM057203Lf6IL+f9T1iT9GByDxfZKAQTCR3kQA=
 golang.org/x/lint v0.0.0-20181026193005-c67002cb31c3/go.mod h1:UVdnD1Gm6xHRNCYTkRU2/jEulfH38KcIWyp/GAMgvoE=
