@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"log"
-	"strconv"
 	"strings"
 
 	"github.com/yagoggame/api"
@@ -53,14 +52,9 @@ func idFromCtx(ctx context.Context) (id int, err error) {
 		return -1, status.Errorf(codes.Internal, "can't get gamer's ID from context")
 	}
 
-	sid, ok := iid.(string)
+	id, ok := iid.(int)
 	if !ok {
 		return -1, status.Errorf(codes.Internal, "unpredicted type %T of interface value", iid)
-	}
-
-	id, err = strconv.Atoi(sid)
-	if err != nil {
-		return -1, status.Errorf(codes.Internal, "can't convert gamer's ID to integer value: %s", err)
 	}
 
 	return id, nil

@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"strconv"
 	"strings"
 
 	"github.com/yagoggame/api"
@@ -61,19 +60,19 @@ const (
 )
 
 // authenticateAgent checks the client credentials.
-func authenticateClient(ctx context.Context, s *Server) (string, error) {
+func authenticateClient(ctx context.Context, s *Server) (int, error) {
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
 		clientLogin := strings.Join(md["login"], "")
 		clientPassword := strings.Join(md["password"], "")
 
 		id, err := s.authorizator.Authorize(clientLogin, clientPassword)
 		if err != nil {
-			return "", err
+			return 0, err
 		}
-		return strconv.Itoa(id), nil
+		return id, nil
 
 	}
-	return "", status.Error(codes.Unauthenticated, "missing credentials")
+	return 0, status.Error(codes.Unauthenticated, "missing credentials")
 }
 
 // unaryInterceptor calls authenticateClient with current context.
