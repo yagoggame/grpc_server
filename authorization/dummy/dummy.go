@@ -14,7 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with yagogame.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+// provides dummy realization of server.Authorizator interface
+package dummy
 
 import (
 	"log"
@@ -23,25 +24,27 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type user struct {
-	Password, Id string
+// User contains user attributes
+type User struct {
+	Password string
+	Id       int
 }
 
-//temporary user holder
-var users map[string]user = map[string]user{
-	"Joe":  user{"aaa", "1"},
-	"Nick": user{"bbb", "2"},
+//user holder
+var users map[string]User = map[string]User{
+	"Joe":  User{"aaa", 1},
+	"Nick": User{"bbb", 2},
 }
 
-//checkClientEntry checks user registration
-func checkClientEntry(login, password string) (id string, err error) {
+// Authorize attempts to authorize user and returns th id if success
+func Authorize(login, password string) (id int, err error) {
 	usr, ok := users[login]
 	if !ok {
-		return "", status.Errorf(codes.Unauthenticated, "unknown user %s", login)
+		return 0, status.Errorf(codes.Unauthenticated, "unknown user %s", login)
 	}
 
 	if password != usr.Password {
-		return "", status.Errorf(codes.Unauthenticated, "bad password %s", password)
+		return 0, status.Errorf(codes.Unauthenticated, "bad password %s", password)
 	}
 	log.Printf("authenticated client: %s", login)
 	return usr.Id, nil
