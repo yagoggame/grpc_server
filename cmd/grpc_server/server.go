@@ -22,9 +22,11 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 	"strings"
 
 	"github.com/yagoggame/api"
+	"github.com/yagoggame/grpc_server/authorization/dummy"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -63,11 +65,11 @@ func authenticateClient(ctx context.Context, s *Server) (string, error) {
 		clientLogin := strings.Join(md["login"], "")
 		clientPassword := strings.Join(md["password"], "")
 
-		id, err := checkClientEntry(clientLogin, clientPassword)
+		id, err := s.authorizator.Authorize(clientLogin, clientPassword)
 		if err != nil {
 			return "", err
 		}
-		return id, nil
+		return strconv.Itoa(id), nil
 
 	}
 	return "", status.Error(codes.Unauthenticated, "missing credentials")
@@ -98,7 +100,7 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	s := newServer()
+	s := newServer(dummy.New())
 	defer s.Release()
 
 	creds, err := credentials.NewServerTLSFromFile(initData.certFile, initData.keyFile)

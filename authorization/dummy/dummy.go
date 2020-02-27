@@ -30,14 +30,19 @@ type User struct {
 	Id       int
 }
 
-//user holder
-var users map[string]User = map[string]User{
-	"Joe":  User{"aaa", 1},
-	"Nick": User{"bbb", 2},
+// Authorizator implements server.Authorizator interface
+type Authorizator map[string]User
+
+// New constructs new Authorizator
+func New() Authorizator {
+	return map[string]User{
+		"Joe":  User{"aaa", 1},
+		"Nick": User{"bbb", 2},
+	}
 }
 
-// Authorize attempts to authorize user and returns th id if success
-func Authorize(login, password string) (id int, err error) {
+// Authorize attempts to authorize user and returns the id if success
+func (users Authorizator) Authorize(login, password string) (id int, err error) {
 	usr, ok := users[login]
 	if !ok {
 		return 0, status.Errorf(codes.Unauthenticated, "unknown user %s", login)

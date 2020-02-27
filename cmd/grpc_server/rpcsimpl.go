@@ -26,6 +26,7 @@ import (
 	"github.com/yagoggame/api"
 	"github.com/yagoggame/gomaster"
 	"github.com/yagoggame/gomaster/game"
+	server "github.com/yagoggame/grpc_server"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -33,7 +34,17 @@ import (
 
 // Server represents the gRPC server.
 type Server struct {
-	pool gomaster.GamersPool
+	pool         gomaster.GamersPool
+	authorizator server.Authorizator
+}
+
+// newServer Creates a new Server instance.
+// After using, it mast be destroyed by Release call.
+func newServer(authorizator server.Authorizator) *Server {
+	return &Server{
+		pool:         gomaster.NewGamersPool(),
+		authorizator: authorizator,
+	}
 }
 
 // idFromCtx gets id as integer from context.
@@ -105,15 +116,15 @@ func (s *Server) JoinTheGame(ctx context.Context, in *api.EmptyMessage) (*api.Em
 	}
 
 	if err := s.joinGamer(id); err != nil {
-		log.Printf("joinGamer error: %s", err)		
+		log.Printf("joinGamer error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
-	
+
 	if err := s.waitGame(ctx, id); err != nil {
-		log.Printf("waitGame error: %s", err)		
+		log.Printf("waitGame error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
-	
+
 	log.Printf("game for gamer with id %d has been begun", id)
 	return &api.EmptyMessage{}, nil
 }
@@ -182,21 +193,15 @@ func (s *Server) MakeTurn(ctx context.Context, in *api.TurnMessage) (*api.EmptyM
 		return &api.EmptyMessage{}, err
 	}
 
-	err = makeTurn(gamer, 
-					&game.TurnData{X: int(in.X), Y: int(in.Y)})
-	if err !=nil {
+	err = makeTurn(gamer,
+		&game.TurnData{X: int(in.X), Y: int(in.Y)})
+	if err != nil {
 		log.Printf("MakeTurn error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
 	log.Printf("gamer %s made a turn: %v %v", gamer, in.X, in.Y)
 
 	return &api.EmptyMessage{}, nil
-}
-
-// newServer Creates a new Server instance.
-// After using, it mast be destroyed by Release call.
-func newServer() *Server {
-	return &Server{pool: gomaster.NewGamersPool()}
 }
 
 // Release - sop the server intity.
@@ -231,7 +236,7 @@ func (s *Server) joinGamer(id int) error {
 		err = status.Errorf(codes.Internal, "failed to get a gamer with id %d: %s", id, err)
 		return err
 	}
-	
+
 	if err := s.pool.JoinGame(gamer.ID); err != nil {
 		err = status.Errorf(codes.Internal, "failed to join the game for gamer %s: %s", gamer, err)
 		return err
@@ -245,7 +250,7 @@ func (s *Server) waitGame(ctx context.Context, id int) error {
 		err = status.Errorf(codes.Internal, "failed to get a gamer with id %d: %s", id, err)
 		return err
 	}
-	
+
 	if err := gamer.InGame.WaitBegin(ctx, gamer.ID); err != nil {
 		err = status.Errorf(codes.Internal, "failed to wait game for gamer %v: %s", gamer, err)
 		//gamer joined a game, so it's must be released.
