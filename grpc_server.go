@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with yagogame.  If not, see <https://www.gnu.org/licenses/>.
 
+//go:generate mockgen -destination=./mocks/mock_grpc_server.go -package=mocks github.com/yagoggame/grpc_server Authorizator,Pooler
+
 // server provides description of interfaces used by business logic
 package server
 
