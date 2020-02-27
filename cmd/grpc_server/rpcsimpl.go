@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 
@@ -28,6 +29,15 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+)
+
+var (
+	// ErrGetIDFailed occurs when context not contains an ID
+	ErrGetIDFailed = status.Errorf(codes.Internal, "can't get gamer's ID from context")
+	// ErrWrongIDType occurs when context not contains an ID of valid type
+	ErrWrongIDType = status.Errorf(codes.Internal, "unpredicted type of interface value")
+	// ErrAddGamer occurs when failed to EnterTheLobby
+	ErrAddGamer = status.Errorf(codes.Internal, "can't add gamer to the Lobby")
 )
 
 // Server represents the gRPC server.
@@ -49,12 +59,12 @@ func newServer(authorizator server.Authorizator, pool server.Pooler) *Server {
 func idFromCtx(ctx context.Context) (id int, err error) {
 	iid := ctx.Value(clientIDKey)
 	if iid == nil {
-		return -1, status.Errorf(codes.Internal, "can't get gamer's ID from context")
+		return 0, ErrGetIDFailed
 	}
 
 	id, ok := iid.(int)
 	if !ok {
-		return -1, status.Errorf(codes.Internal, "unpredicted type %T of interface value", iid)
+		return 0, fmt.Errorf("%w: %T", ErrWrongIDType, iid)
 	}
 
 	return id, nil
@@ -64,12 +74,13 @@ func idFromCtx(ctx context.Context) (id int, err error) {
 func (s *Server) EnterTheLobby(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
 	gamer, err := userFromContext(ctx)
 	if err != nil {
+		err = fmt.Errorf("%w (gamer: %v): %v", ErrAddGamer, gamer, err)
 		log.Printf("EnterTheLobby error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
 
 	if err := s.pool.AddGamer(gamer); err != nil {
-		err = status.Errorf(codes.Internal, "can't add gamer %s to the Lobby: %s", gamer, err)
+		err = fmt.Errorf("%w (gamer: %v): %v", ErrAddGamer, gamer, err)
 		log.Printf("EnterTheLobby error: %s", err)
 
 		return &api.EmptyMessage{}, err
@@ -83,7 +94,6 @@ func (s *Server) EnterTheLobby(ctx context.Context, in *api.EmptyMessage) (*api.
 func (s *Server) LeaveTheLobby(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
 	id, err := idFromCtx(ctx)
 	if err != nil {
-		err = status.Errorf(codes.Unknown, "can't get gamer's ID: %s", err)
 		log.Printf("LeaveTheLobby error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
@@ -103,7 +113,6 @@ func (s *Server) LeaveTheLobby(ctx context.Context, in *api.EmptyMessage) (*api.
 func (s *Server) JoinTheGame(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
 	id, err := idFromCtx(ctx)
 	if err != nil {
-		err = status.Errorf(codes.Unknown, "can't get gamer's ID: %s", err)
 		log.Printf("JoinTheGame error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
@@ -126,7 +135,6 @@ func (s *Server) JoinTheGame(ctx context.Context, in *api.EmptyMessage) (*api.Em
 func (s *Server) WaitTheTurn(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
 	id, err := idFromCtx(ctx)
 	if err != nil {
-		err = status.Errorf(codes.Unknown, "can't get gamer's ID: %s", err)
 		log.Printf("JoinTheGame error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
@@ -154,7 +162,6 @@ func (s *Server) WaitTheTurn(ctx context.Context, in *api.EmptyMessage) (*api.Em
 func (s *Server) LeaveTheGame(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
 	id, err := idFromCtx(ctx)
 	if err != nil {
-		err = status.Errorf(codes.Unknown, "can't get gamer's ID: %s", err)
 		log.Printf("JoinTheGame error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
@@ -174,7 +181,6 @@ func (s *Server) LeaveTheGame(ctx context.Context, in *api.EmptyMessage) (*api.E
 func (s *Server) MakeTurn(ctx context.Context, in *api.TurnMessage) (*api.EmptyMessage, error) {
 	id, err := idFromCtx(ctx)
 	if err != nil {
-		err = status.Errorf(codes.Unknown, "can't get gamer's ID: %s", err)
 		log.Printf("JoinTheGame error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
@@ -197,7 +203,7 @@ func (s *Server) MakeTurn(ctx context.Context, in *api.TurnMessage) (*api.EmptyM
 	return &api.EmptyMessage{}, nil
 }
 
-// Release - sop the server intity.
+// Release sops the server intity.
 func (s *Server) Release() {
 	s.pool.Release()
 }

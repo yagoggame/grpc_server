@@ -34,6 +34,13 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+var (
+	// ErrMissCred occurs when metadata missing credentials
+	ErrMissCred = status.Error(codes.Unauthenticated, "missing credentials")
+	// ErrServerCast occurs when unaryInterceptor called not for the *Server
+	ErrServerCast = status.Error(codes.Internal, "unable to cast server")
+)
+
 // iniDataContainertype is a container of initial data to run server.
 type iniDataContainer struct {
 	port     int
@@ -67,19 +74,19 @@ func authenticateClient(ctx context.Context, s *Server) (int, error) {
 
 		id, err := s.authorizator.Authorize(clientLogin, clientPassword)
 		if err != nil {
-			return 0, err
+			return 0, status.Error(codes.Unauthenticated, err.Error())
 		}
 		return id, nil
 
 	}
-	return 0, status.Error(codes.Unauthenticated, "missing credentials")
+	return 0, ErrMissCred
 }
 
 // unaryInterceptor calls authenticateClient with current context.
 func unaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	s, ok := info.Server.(*Server)
 	if !ok {
-		return nil, status.Error(codes.Internal, "unable to cast server")
+		return nil, ErrServerCast
 	}
 
 	clientID, err := authenticateClient(ctx, s)

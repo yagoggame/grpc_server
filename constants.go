@@ -16,22 +16,13 @@
 
 //go:generate mockgen -destination=./mocks/mock_grpc_server.go -package=mocks github.com/yagoggame/grpc_server Authorizator,Pooler
 
-// server provides description of interfaces used by business logic
 package server
 
-import "github.com/yagoggame/gomaster/game"
+import "errors"
 
-// Authorizator requests id of user by login and password
-type Authorizator interface {
-	Authorize(login, password string) (id int, err error)
-}
-
-type Pooler interface {
-	AddGamer(gamer *game.Gamer) error
-	RmGamer(id int) (gamer *game.Gamer, err error)
-	ListGamers() []*game.Gamer
-	JoinGame(id int) error
-	ReleaseGame(id int) error
-	GetGamer(id int) (*game.Gamer, error)
-	Release()
-}
+var (
+	// ErrLogin occurs when login not recognized by Authorizator interface
+	ErrLogin = errors.New("wrong login")
+	// ErrPassword occurs when password not recognized by Authorizator interface
+	ErrPassword = errors.New("wrong password")
+)
