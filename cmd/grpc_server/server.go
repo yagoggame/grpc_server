@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/yagoggame/api"
+	"github.com/yagoggame/gomaster"
 	"github.com/yagoggame/grpc_server/authorization/dummy"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -100,7 +101,7 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	s := newServer(dummy.New())
+	s := newServer(dummy.New(), gomaster.NewGamersPool())
 	defer s.Release()
 
 	creds, err := credentials.NewServerTLSFromFile(initData.certFile, initData.keyFile)

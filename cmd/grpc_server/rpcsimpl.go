@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/yagoggame/api"
-	"github.com/yagoggame/gomaster"
 	"github.com/yagoggame/gomaster/game"
 	server "github.com/yagoggame/grpc_server"
 	"google.golang.org/grpc/codes"
@@ -34,15 +33,15 @@ import (
 
 // Server represents the gRPC server.
 type Server struct {
-	pool         gomaster.GamersPool
+	pool         server.Pooler
 	authorizator server.Authorizator
 }
 
 // newServer Creates a new Server instance.
 // After using, it mast be destroyed by Release call.
-func newServer(authorizator server.Authorizator) *Server {
+func newServer(authorizator server.Authorizator, pool server.Pooler) *Server {
 	return &Server{
-		pool:         gomaster.NewGamersPool(),
+		pool:         pool,
 		authorizator: authorizator,
 	}
 }

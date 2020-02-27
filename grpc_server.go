@@ -17,7 +17,19 @@
 // server provides description of interfaces used by business logic
 package server
 
+import "github.com/yagoggame/gomaster/game"
+
 // Authorizator requests id of user by login and password
 type Authorizator interface {
 	Authorize(login, password string) (id int, err error)
+}
+
+type Pooler interface {
+	AddGamer(gamer *game.Gamer) error
+	RmGamer(id int) (gamer *game.Gamer, err error)
+	ListGamers() []*game.Gamer
+	JoinGame(id int) error
+	ReleaseGame(id int) error
+	GetGamer(id int) (*game.Gamer, error)
+	Release()
 }
