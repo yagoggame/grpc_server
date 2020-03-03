@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -26,7 +25,6 @@ import (
 	"github.com/yagoggame/grpc_server/mocks"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -48,7 +46,7 @@ var authorizationTests = []struct {
 	timesAuth    int
 	timesRel     int
 	ctx          context.Context
-	fncGenServer func(server.Authorizator, server.Pooler) interface{}
+	fncGenServer func(server.Authorizator, server.Pooler, server.GameGeter) interface{}
 }{
 	{
 		caseName: "authorized user", timesAuth: 1, timesRel: 1,
@@ -90,7 +88,7 @@ func TestUnaryInterceptor(t *testing.T) {
 
 			authorizator := mocks.NewMockAuthorizator(controller)
 			pooler := mocks.NewMockPooler(controller)
-			s := test.fncGenServer(authorizator, pooler)
+			s := test.fncGenServer(authorizator, pooler, nil)
 			if s, ok := s.(*Server); ok {
 				defer s.Release()
 			}
@@ -111,61 +109,4 @@ func TestUnaryInterceptor(t *testing.T) {
 			testIDErr(t, &iderr{id: ival, err: err}, test.want)
 		})
 	}
-}
-
-func transform(t *testing.T, val interface{}, err error) int {
-	if err != nil {
-		return 0
-	}
-	id, ok := val.(int)
-	if !ok {
-		t.Fatalf("Unexpected id type:\nwant: %T,\ngot: %T.", 1, val)
-	}
-
-	return id
-}
-
-func handler(ctx context.Context, req interface{}) (interface{}, error) {
-	iid := ctx.Value(clientIDKey)
-	if iid == nil {
-		return 0, ErrGetIDFailed
-	}
-
-	return iid, nil
-}
-
-func testIDErr(t *testing.T, got, want *iderr) {
-	if got.id != want.id {
-		t.Errorf("Unexpected id:\nwant: %d,\ngot: %d.", want.id, got.id)
-	}
-
-	testErr(t, got.err, want.err)
-
-}
-
-func testErr(t *testing.T, got, want error) {
-	if !errors.Is(got, want) {
-		t.Errorf("Unexpected err:\nwant: %v,\ngot: %v.", want, got)
-	}
-
-	if status.Code(got) != status.Code(want) {
-		t.Errorf("Unexpected error code:\nwant: %v,\ngot: %v.", status.Code(want), status.Code(got))
-	}
-
-}
-
-func userContext(login, password string) context.Context {
-	md := metadata.New(map[string]string{"login": correctLogin, "password": correctPassword})
-	ctx := metadata.NewIncomingContext(context.Background(), md)
-	return ctx
-}
-
-func genSrv(a server.Authorizator, p server.Pooler) interface{} {
-	return newServer(a, p)
-
-}
-
-func genFakeSrv(a server.Authorizator, p server.Pooler) interface{} {
-	return nil
-
 }

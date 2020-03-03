@@ -34,24 +34,50 @@ import (
 var (
 	// ErrGetIDFailed occurs when context not contains an ID
 	ErrGetIDFailed = status.Errorf(codes.Internal, "can't get gamer's ID from context")
+	// ErrNameEmpty occurs login is empty
+	ErrNameEmpty = status.Errorf(codes.Internal, "lobby don't accept empty name(login)")
 	// ErrWrongIDType occurs when context not contains an ID of valid type
 	ErrWrongIDType = status.Errorf(codes.Internal, "unpredicted type of interface value")
 	// ErrAddGamer occurs when failed to EnterTheLobby
 	ErrAddGamer = status.Errorf(codes.Internal, "can't add gamer to the Lobby")
+	// ErrLeaveLobby occurs when failed to LeaveTheLobby
+	ErrLeaveLobby = status.Errorf(codes.Internal, "can't leave the lobby")
+	// ErrJoinGame occurs when failed to JoinGame
+	ErrJoinGame = status.Errorf(codes.Internal, "can't join the game")
+	// ErrWaitGame occurs when failed to wait a game begin
+	ErrWaitGame = status.Errorf(codes.Internal, "can't await the game begin")
+	// ErrNilGame occurs when game obtained by gamer.GetGame is nil
+	ErrNilGame = status.Errorf(codes.Internal, "nil game getted for a gamer")
+	// ErrReleaseGame occurs when failed to ReleaseGame
+	ErrReleaseGame = status.Errorf(codes.Internal, "can't release Game")
+	// ErrMakeTurn occurs when failed to MakeTurn
+	ErrMakeTurn = status.Errorf(codes.Internal, "can't make turn for a gamer")
+	// ErrWrongTurn occurs when wrong data providet to MakeTurn
+	ErrWrongTurn = status.Errorf(codes.InvalidArgument, "wrong turn for a gamer")
 )
+
+func extGrpcError(err error, ext string) error {
+	st, ok := status.FromError(err)
+	if !ok {
+		return status.Errorf(codes.Unknown, fmt.Errorf("%w: %s", err, ext).Error())
+	}
+	return status.Errorf(st.Code(), fmt.Errorf("%s: %s", st.Message(), ext).Error())
+}
 
 // Server represents the gRPC server.
 type Server struct {
 	pool         server.Pooler
 	authorizator server.Authorizator
+	gameGeter    server.GameGeter
 }
 
 // newServer Creates a new Server instance.
 // After using, it mast be destroyed by Release call.
-func newServer(authorizator server.Authorizator, pool server.Pooler) *Server {
+func newServer(authorizator server.Authorizator, pool server.Pooler, gameGeter server.GameGeter) *Server {
 	return &Server{
 		pool:         pool,
 		authorizator: authorizator,
+		gameGeter:    gameGeter,
 	}
 }
 
@@ -74,13 +100,12 @@ func idFromCtx(ctx context.Context) (id int, err error) {
 func (s *Server) EnterTheLobby(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
 	gamer, err := userFromContext(ctx)
 	if err != nil {
-		err = fmt.Errorf("%w (gamer: %v): %v", ErrAddGamer, gamer, err)
 		log.Printf("EnterTheLobby error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
 
 	if err := s.pool.AddGamer(gamer); err != nil {
-		err = fmt.Errorf("%w (gamer: %v): %v", ErrAddGamer, gamer, err)
+		err := extGrpcError(ErrAddGamer, err.Error())
 		log.Printf("EnterTheLobby error: %s", err)
 
 		return &api.EmptyMessage{}, err
@@ -100,7 +125,7 @@ func (s *Server) LeaveTheLobby(ctx context.Context, in *api.EmptyMessage) (*api.
 
 	gamer, err := s.pool.RmGamer(id)
 	if err != nil {
-		err = status.Errorf(codes.FailedPrecondition, "%s", err)
+		err := extGrpcError(ErrLeaveLobby, err.Error())
 		log.Printf("LeaveTheLobby error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
@@ -117,13 +142,14 @@ func (s *Server) JoinTheGame(ctx context.Context, in *api.EmptyMessage) (*api.Em
 		return &api.EmptyMessage{}, err
 	}
 
-	if err := s.joinGamer(id); err != nil {
-		log.Printf("joinGamer error: %s", err)
+	if err := s.pool.JoinGame(id); err != nil {
+		err := extGrpcError(ErrJoinGame, err.Error())
+		log.Printf("JoinTheGame error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
 
 	if err := s.waitGame(ctx, id); err != nil {
-		log.Printf("waitGame error: %s", err)
+		log.Printf("JoinTheGame error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
 
@@ -135,24 +161,27 @@ func (s *Server) JoinTheGame(ctx context.Context, in *api.EmptyMessage) (*api.Em
 func (s *Server) WaitTheTurn(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
 	id, err := idFromCtx(ctx)
 	if err != nil {
-		log.Printf("JoinTheGame error: %s", err)
-		return &api.EmptyMessage{}, err
-	}
-
-	gamer, err := s.pool.GetGamer(id)
-	if err != nil {
-		err = status.Errorf(codes.Internal, "failed to get a gamer with id %d: %s", id, err)
-		log.Printf("WaitTheGame error: %s", err)
-		return &api.EmptyMessage{}, err
-	}
-
-	log.Printf("Gamer %s waiting for his turn...", gamer)
-	if err := gamer.InGame.WaitTurn(ctx, gamer.ID); err != nil {
-		err = status.Errorf(codes.Internal, "failed to wait turn for gamer %v: %s", gamer, err)
 		log.Printf("WaitTheTurn error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
-	log.Printf("Gamer's %s turn has been begun", gamer)
+
+	gameManager, err := s.gameGeter.GetGame(id)
+	if err != nil {
+		log.Printf("WaitTheTurn error: %s", err)
+		return &api.EmptyMessage{}, err
+	}
+	if gameManager == nil {
+		err = extGrpcError(ErrNilGame, fmt.Sprintf(" with id %d: %v", id, err))
+		log.Printf("WaitTheTurn error: %s", err)
+		return &api.EmptyMessage{}, err
+	}
+
+	log.Printf("Gamer with id %d waiting for his turn...", id)
+	if err := gameManager.WaitTurn(ctx, id); err != nil {
+		log.Printf("WaitTheTurn error: %s", err)
+		return &api.EmptyMessage{}, err
+	}
+	log.Printf("turn of gamer with id %d has been begun", id)
 
 	return &api.EmptyMessage{}, nil
 }
@@ -162,14 +191,14 @@ func (s *Server) WaitTheTurn(ctx context.Context, in *api.EmptyMessage) (*api.Em
 func (s *Server) LeaveTheGame(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
 	id, err := idFromCtx(ctx)
 	if err != nil {
-		log.Printf("JoinTheGame error: %s", err)
+		log.Printf("LeaveTheGame error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
 
 	//leave the gamer's game, if it is.
 	if err := s.pool.ReleaseGame(id); err != nil {
-		err = status.Errorf(codes.Internal, "gamer with id %d: failed to Release game: %q", id, err)
-		log.Printf("WaitTheGame error: %s", err)
+		err = extGrpcError(ErrReleaseGame, fmt.Sprintf("failed to ReleaseGame for gamer with id %d: %v", id, err))
+		log.Printf("LeaveTheGame error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
 	log.Printf("gamer with id %d left his game", id)
@@ -185,20 +214,24 @@ func (s *Server) MakeTurn(ctx context.Context, in *api.TurnMessage) (*api.EmptyM
 		return &api.EmptyMessage{}, err
 	}
 
-	gamer, err := s.pool.GetGamer(id)
+	gameManager, err := s.gameGeter.GetGame(id)
 	if err != nil {
-		err = status.Errorf(codes.Internal, "failed to get a gamer with id %d: %s", id, err)
-		log.Printf("WaitTheGame error: %s", err)
+		log.Printf("MakeTurn error: %s", err)
+		return &api.EmptyMessage{}, err
+	}
+	if gameManager == nil {
+		err = extGrpcError(ErrNilGame, fmt.Sprintf(" with id %d: %v", id, err))
+		log.Printf("MakeTurn error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
 
-	err = makeTurn(gamer,
+	err = makeTurn(gameManager, id,
 		&game.TurnData{X: int(in.X), Y: int(in.Y)})
 	if err != nil {
 		log.Printf("MakeTurn error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
-	log.Printf("gamer %s made a turn: %v %v", gamer, in.X, in.Y)
+	log.Printf("gamer with id %d made a turn: %v %v", id, in.X, in.Y)
 
 	return &api.EmptyMessage{}, nil
 }
@@ -211,50 +244,35 @@ func (s *Server) Release() {
 func userFromContext(ctx context.Context) (gamer *game.Gamer, err error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		err := status.Errorf(codes.Unknown, "can't get metadata")
-		return nil, err
+		return nil, ErrMissCred
 	}
 	name := strings.Join(md["login"], "")
 	if len(name) < 1 {
-		err := status.Errorf(codes.Unknown, "name of a player is to short to be accepted by a lobby")
-		return nil, err
+		return nil, ErrNameEmpty
 	}
 
 	id, err := idFromCtx(ctx)
 	if err != nil {
-		err = status.Errorf(codes.Unknown, "can't get gamer's %s ID: %s", name, err)
 		return nil, err
 	}
 
 	return &game.Gamer{Name: name, ID: id}, nil
 }
 
-func (s *Server) joinGamer(id int) error {
-	gamer, err := s.pool.GetGamer(id)
-	if err != nil {
-		err = status.Errorf(codes.Internal, "failed to get a gamer with id %d: %s", id, err)
-		return err
-	}
-
-	if err := s.pool.JoinGame(gamer.ID); err != nil {
-		err = status.Errorf(codes.Internal, "failed to join the game for gamer %s: %s", gamer, err)
-		return err
-	}
-	return nil
-}
-
 func (s *Server) waitGame(ctx context.Context, id int) error {
-	gamer, err := s.pool.GetGamer(id)
+	gameManager, err := s.gameGeter.GetGame(id)
 	if err != nil {
-		err = status.Errorf(codes.Internal, "failed to get a gamer with id %d: %s", id, err)
+		return err
+	}
+	if gameManager == nil {
+		err = extGrpcError(ErrNilGame, fmt.Sprintf(" with id %d: %v", id, err))
 		return err
 	}
 
-	if err := gamer.InGame.WaitBegin(ctx, gamer.ID); err != nil {
-		err = status.Errorf(codes.Internal, "failed to wait game for gamer %v: %s", gamer, err)
+	if err := gameManager.WaitBegin(ctx, id); err != nil {
 		//gamer joined a game, so it's must be released.
-		if errl := s.pool.ReleaseGame(gamer.ID); errl != nil {
-			err = status.Errorf(codes.Internal, "gamer %v: failed to Release game: %q, after failed game awaiting: %q:", gamer, errl, err)
+		if errl := s.pool.ReleaseGame(id); errl != nil {
+			err = extGrpcError(err, fmt.Sprintf(", gamer with id %d: failed to Release game: %q, after failed game awaiting", id, errl))
 			return err
 		}
 		return err
@@ -262,13 +280,13 @@ func (s *Server) waitGame(ctx context.Context, id int) error {
 	return nil
 }
 
-func makeTurn(gamer *game.Gamer, move *game.TurnData) error {
-	if err := gamer.InGame.MakeTurn(gamer.ID, move); err != nil {
+func makeTurn(gm server.GameManager, id int, move *game.TurnData) error {
+	if err := gm.MakeTurn(id, move); err != nil {
 		if errors.Is(err, game.ErrWrongTurn) {
-			err := status.Errorf(codes.InvalidArgument, "%s", err)
+			err = extGrpcError(ErrWrongTurn, fmt.Sprintf(" with id %d: %v", id, err))
 			return err
 		}
-		err = status.Errorf(codes.Internal, "fail on  MakeTurnGame for gamer %s : %s", gamer, err)
+		err = extGrpcError(ErrMakeTurn, fmt.Sprintf(" with id %d: %v", id, err))
 		return err
 	}
 	return nil

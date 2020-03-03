@@ -107,7 +107,10 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	s := newServer(dummy.New(), gomaster.NewGamersPool())
+	gamePool := gomaster.NewGamersPool()
+	// gameGeter is separated from the object for testing purposes
+	gameGeter := newGameGeter(gamePool)
+	s := newServer(dummy.New(), gamePool, gameGeter)
 	defer s.Release()
 
 	creds, err := credentials.NewServerTLSFromFile(initData.certFile, initData.keyFile)
