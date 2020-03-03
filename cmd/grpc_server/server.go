@@ -25,11 +25,20 @@ import (
 	"strings"
 
 	"github.com/yagoggame/api"
+	"github.com/yagoggame/gomaster"
+	"github.com/yagoggame/grpc_server/authorization/dummy"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+)
+
+var (
+	// ErrMissCred occurs when metadata missing credentials
+	ErrMissCred = status.Error(codes.Unauthenticated, "missing credentials")
+	// ErrServerCast occurs when unaryInterceptor called not for the *Server
+	ErrServerCast = status.Error(codes.Internal, "unable to cast server")
 )
 
 // iniDataContainertype is a container of initial data to run server.
@@ -58,26 +67,26 @@ const (
 )
 
 // authenticateAgent checks the client credentials.
-func authenticateClient(ctx context.Context, s *Server) (string, error) {
+func authenticateClient(ctx context.Context, s *Server) (int, error) {
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
 		clientLogin := strings.Join(md["login"], "")
 		clientPassword := strings.Join(md["password"], "")
 
-		id, err := checkClientEntry(clientLogin, clientPassword)
+		id, err := s.authorizator.Authorize(clientLogin, clientPassword)
 		if err != nil {
-			return "", err
+			return 0, status.Error(codes.Unauthenticated, err.Error())
 		}
 		return id, nil
 
 	}
-	return "", status.Error(codes.Unauthenticated, "missing credentials")
+	return 0, ErrMissCred
 }
 
 // unaryInterceptor calls authenticateClient with current context.
 func unaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	s, ok := info.Server.(*Server)
 	if !ok {
-		return nil, status.Error(codes.Internal, "unable to cast server")
+		return nil, ErrServerCast
 	}
 
 	clientID, err := authenticateClient(ctx, s)
@@ -98,7 +107,10 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	s := newServer()
+	gamePool := gomaster.NewGamersPool()
+	// gameGeter is separated from the object for testing purposes
+	gameGeter := newGameGeter(gamePool)
+	s := newServer(dummy.New(), gamePool, gameGeter)
 	defer s.Release()
 
 	creds, err := credentials.NewServerTLSFromFile(initData.certFile, initData.keyFile)

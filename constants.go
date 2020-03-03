@@ -14,35 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with yagogame.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package server
 
-import (
-	"log"
+import "errors"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+var (
+	// ErrLogin occurs when login not recognized by Authorizator interface
+	ErrLogin = errors.New("wrong login")
+	// ErrPassword occurs when password not recognized by Authorizator interface
+	ErrPassword = errors.New("wrong password")
 )
-
-type user struct {
-	Password, Id string
-}
-
-//temporary user holder
-var users map[string]user = map[string]user{
-	"Joe":  user{"aaa", "1"},
-	"Nick": user{"bbb", "2"},
-}
-
-//checkClientEntry checks user registration
-func checkClientEntry(login, password string) (id string, err error) {
-	usr, ok := users[login]
-	if !ok {
-		return "", status.Errorf(codes.Unauthenticated, "unknown user %s", login)
-	}
-
-	if password != usr.Password {
-		return "", status.Errorf(codes.Unauthenticated, "bad password %s", password)
-	}
-	log.Printf("authenticated client: %s", login)
-	return usr.Id, nil
-}
