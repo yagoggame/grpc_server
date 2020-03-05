@@ -122,7 +122,6 @@ func TestUnarySkipAuth(t *testing.T) {
 	skipper := "RegisterUser"
 
 	for _, funcName := range funcNames {
-
 		t.Run(funcName, func(t *testing.T) {
 			controller := gomock.NewController(t)
 			defer controller.Finish()

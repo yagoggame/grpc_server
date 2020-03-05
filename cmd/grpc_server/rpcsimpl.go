@@ -98,6 +98,12 @@ func idFromCtx(ctx context.Context) (id int, err error) {
 
 // RegisterUser provides registration of user by authorizator.
 func (s *Server) RegisterUser(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
+	_, err := idFromCtx(ctx)
+	if err != nil {
+		log.Printf("RegisterUser error: %s", err)
+		return &api.EmptyMessage{}, err
+	}
+
 	return &api.EmptyMessage{}, nil
 }
 
