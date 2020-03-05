@@ -233,6 +233,11 @@ func TestRemove(t *testing.T) {
 				t.Errorf("Unexpected count of user delta:\nwant: -1\ngot: %d.", authorizator.Len()-usersLen)
 			}
 
+			_, authErr := authorizator.Authorize(&test.requisites)
+			if err == nil && authErr != server.ErrLogin {
+				t.Errorf("Unexpected Authorize err:\nwant: %v\ngot: %v.", server.ErrLogin, authErr)
+			}
+
 		})
 	}
 }
@@ -247,7 +252,6 @@ func TestChangeRequisites(t *testing.T) {
 			testErr(t, test.want, err)
 
 			user, ok := authorizator[test.requisitesNew.Login]
-
 			if err == nil {
 				if !ok {
 					t.Fatalf("Unexpected behavior of authorizator:\nwant: login changed\n:got: user with new login not found.")
