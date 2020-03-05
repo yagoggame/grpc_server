@@ -81,7 +81,7 @@ var EnterTheLobbyTests = []commonTestCase{
 		caseName: "No Name",
 		times:    []int{0, 1},
 		ret:      []error{nil},
-		want:     ErrNameEmpty,
+		want:     ErrLoginEmpty,
 		ctx:      userContext("", "")},
 	{
 		caseName: "Main action fail",

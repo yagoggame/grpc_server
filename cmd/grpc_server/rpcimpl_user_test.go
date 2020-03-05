@@ -18,12 +18,15 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"log"
+	"reflect"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/yagoggame/api"
+	server "github.com/yagoggame/grpc_server"
 	"github.com/yagoggame/grpc_server/mocks"
 )
 
@@ -38,6 +41,47 @@ var RegisterUserTests = []commonTestCase{
 		caseName: "Normal",
 		times:    []int{1},
 		ret:      []error{nil},
+		want:     nil,
+		ctx: context.WithValue(userContext(someLogin, somePassword),
+			clientIDKey, correctID)},
+}
+
+var RemoveUserTests = []commonTestCase{
+	{
+		caseName: "No Cred",
+		times:    []int{0, 1},
+		ret:      []error{nil},
+		want:     ErrMissCred,
+		ctx:      context.Background()},
+	{
+		caseName: "Empty login",
+		times:    []int{0, 1},
+		ret:      []error{nil, nil},
+		want:     ErrLoginEmpty,
+		ctx:      userContext("", somePassword)},
+	{
+		caseName: "Empty password",
+		times:    []int{0, 1},
+		ret:      []error{nil, nil},
+		want:     ErrPasswordEmpty,
+		ctx:      userContext(someLogin, "")},
+	{
+		caseName: "No ID",
+		times:    []int{0, 1},
+		ret:      []error{nil, nil},
+		want:     ErrGetIDFailed,
+		ctx:      userContext(someLogin, somePassword)},
+	{
+		caseName: "removing error",
+		times:    []int{1, 1},
+		ret:      []error{server.ErrLoginOccupied, nil},
+		want:     ErrRemovingUser,
+		ctx: context.WithValue(userContext(someLogin, somePassword),
+			clientIDKey, correctID)},
+	{
+		caseName: "removing success",
+		times:    []int{1, 1},
+		ret:      []error{nil, nil},
 		want:     nil,
 		ctx: context.WithValue(userContext(someLogin, somePassword),
 			clientIDKey, correctID)},
@@ -64,4 +108,56 @@ func TestRegisterUser(t *testing.T) {
 			testErr(t, err, test.want)
 		})
 	}
+}
+
+func TestRemoveUser(t *testing.T) {
+	log.SetOutput(ioutil.Discard)
+
+	for _, test := range RemoveUserTests {
+		t.Run(test.caseName, func(t *testing.T) {
+			controller := gomock.NewController(t)
+			defer controller.Finish()
+
+			authorizator := mocks.NewMockAuthorizator(controller)
+			pooler := mocks.NewMockPooler(controller)
+			s := newServer(authorizator, pooler, nil)
+			defer s.Release()
+
+			requisites := server.Requisites{
+				Login:    someLogin,
+				Password: somePassword,
+			}
+
+			gomock.InOrder(
+				authorizator.EXPECT().
+					Remove(matchByRequisites(&requisites)).
+					Return(correctID, test.ret[0]).
+					Times(test.times[0]),
+				pooler.EXPECT().
+					Release().
+					Times(test.times[1]))
+
+			_, err := s.RemoveUser(test.ctx, &api.EmptyMessage{})
+			testErr(t, err, test.want)
+		})
+	}
+}
+
+type byRequisites struct{ r *server.Requisites }
+
+func matchByRequisites(r *server.Requisites) gomock.Matcher {
+	return &byRequisites{r}
+}
+
+func (o *byRequisites) Matches(x interface{}) bool {
+	r2, ok := x.(*server.Requisites)
+	if !ok {
+		return false
+	}
+
+	return reflect.DeepEqual(*o.r, *r2)
+}
+
+func (o *byRequisites) String() string {
+	return fmt.Sprintf("has value %v", o.r)
 }
