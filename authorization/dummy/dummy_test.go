@@ -29,7 +29,7 @@ type iderr struct {
 	err error
 }
 
-var testsCommon = []struct {
+var testsAuthorize = []struct {
 	caseName   string
 	requisites server.Requisites
 	want       iderr
@@ -68,10 +68,49 @@ var testsCommon = []struct {
 	},
 }
 
+var testsRemove = []struct {
+	caseName   string
+	requisites server.Requisites
+	want       error
+}{
+	{
+		caseName: "unregistred login",
+		requisites: server.Requisites{
+			Login:    "Piter",
+			Password: "aaa",
+		},
+		want: server.ErrLogin,
+	},
+	{
+		caseName: "registred login wrong password",
+		requisites: server.Requisites{
+			Login:    "Joe",
+			Password: "ababab",
+		},
+		want: server.ErrPassword,
+	},
+	{
+		caseName: "registred login",
+		requisites: server.Requisites{
+			Login:    "Joe",
+			Password: "aaa",
+		},
+		want: nil,
+	},
+	{
+		caseName: "registred login",
+		requisites: server.Requisites{
+			Login:    "Nick",
+			Password: "bbb",
+		},
+		want: nil,
+	},
+}
+
 var testsRegister = []struct {
 	caseName   string
 	requisites server.Requisites
-	want       iderr
+	want       error
 }{
 	{
 		caseName: "registred login",
@@ -79,28 +118,28 @@ var testsRegister = []struct {
 			Login:    "Joe",
 			Password: "aaa",
 		},
-		want: iderr{id: 0, err: server.ErrLoginOccupied}},
+		want: server.ErrLoginOccupied},
 	{
 		caseName: "unregistred login first",
 		requisites: server.Requisites{
 			Login:    "Piter",
 			Password: "aaa",
 		},
-		want: iderr{id: 1, err: nil}},
+		want: nil},
 	{
 		caseName: "unregistred login second",
 		requisites: server.Requisites{
 			Login:    "Mike",
 			Password: "mmm",
 		},
-		want: iderr{id: 4, err: nil}},
+		want: nil},
 }
 
 var testsChangeRequisites = []struct {
 	caseName      string
 	requisitesOld server.Requisites
 	requisitesNew server.Requisites
-	want          iderr
+	want          error
 }{
 	{
 		caseName: "from unregistred login",
@@ -112,7 +151,7 @@ var testsChangeRequisites = []struct {
 			Login:    "Teodor",
 			Password: "ttt",
 		},
-		want: iderr{id: 0, err: server.ErrLogin},
+		want: server.ErrLogin,
 	},
 	{
 		caseName: "from registred login wrong password",
@@ -124,7 +163,7 @@ var testsChangeRequisites = []struct {
 			Login:    "Teodor",
 			Password: "ttt",
 		},
-		want: iderr{id: 0, err: server.ErrPassword},
+		want: server.ErrPassword,
 	},
 	{
 		caseName: "to registred",
@@ -136,7 +175,7 @@ var testsChangeRequisites = []struct {
 			Login:    "Nick",
 			Password: "bbb",
 		},
-		want: iderr{id: 0, err: server.ErrLoginOccupied},
+		want: server.ErrLoginOccupied,
 	},
 	{
 		caseName: "registred to unregistred",
@@ -148,14 +187,14 @@ var testsChangeRequisites = []struct {
 			Login:    "Teodor",
 			Password: "ttt",
 		},
-		want: iderr{id: 2, err: nil},
+		want: nil,
 	},
 }
 
 func TestAuthorize(t *testing.T) {
 	log.SetOutput(ioutil.Discard)
 	authorizator := New()
-	for _, test := range testsCommon {
+	for _, test := range testsAuthorize {
 		t.Run(test.caseName, func(t *testing.T) {
 			id, err := authorizator.Authorize(&test.requisites)
 
@@ -170,9 +209,9 @@ func TestRegister(t *testing.T) {
 
 	for _, test := range testsRegister {
 		t.Run(test.caseName, func(t *testing.T) {
-			id, err := authorizator.Register(&test.requisites)
+			err := authorizator.Register(&test.requisites)
 
-			testIDErr(t, test.want, iderr{id: id, err: err})
+			testErr(t, test.want, err)
 		})
 	}
 }
@@ -181,12 +220,12 @@ func TestRemove(t *testing.T) {
 	log.SetOutput(ioutil.Discard)
 	authorizator := New()
 
-	for _, test := range testsCommon {
+	for _, test := range testsRemove {
 		t.Run(test.caseName, func(t *testing.T) {
 			usersLen := authorizator.Len()
-			id, err := authorizator.Remove(&test.requisites)
+			err := authorizator.Remove(&test.requisites)
 
-			testIDErr(t, test.want, iderr{id: id, err: err})
+			testErr(t, test.want, err)
 
 			if err != nil && usersLen != authorizator.Len() {
 				t.Errorf("Unexpected count of user delta:\nwant: 0\ngot: %d.", authorizator.Len()-usersLen)
@@ -203,9 +242,9 @@ func TestChangeRequisites(t *testing.T) {
 	authorizator := New()
 	for _, test := range testsChangeRequisites {
 		t.Run(test.caseName, func(t *testing.T) {
-			id, err := authorizator.ChangeRequisites(&test.requisitesOld, &test.requisitesNew)
+			err := authorizator.ChangeRequisites(&test.requisitesOld, &test.requisitesNew)
 
-			testIDErr(t, test.want, iderr{id: id, err: err})
+			testErr(t, test.want, err)
 
 			user, ok := authorizator[test.requisitesNew.Login]
 
@@ -230,5 +269,11 @@ func testIDErr(t *testing.T, want, got iderr) {
 	}
 	if got.err != want.err {
 		t.Errorf("Unexpected err:\nwant: %v,\ngot: %v.", want.err, got.err)
+	}
+}
+
+func testErr(t *testing.T, want, got error) {
+	if got != want {
+		t.Errorf("Unexpected err:\nwant: %v,\ngot: %v.", want, got)
 	}
 }

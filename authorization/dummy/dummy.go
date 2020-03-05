@@ -56,10 +56,10 @@ func (users Authorizator) Authorize(requisites *server.Requisites) (id int, err 
 }
 
 // Register attempts to register a new user and returns the id if success
-func (users Authorizator) Register(requisites *server.Requisites) (id int, err error) {
+func (users Authorizator) Register(requisites *server.Requisites) error {
 	user, ok := users[requisites.Login]
 	if ok {
-		return 0, server.ErrLoginOccupied
+		return server.ErrLoginOccupied
 	}
 
 	user = &User{
@@ -69,44 +69,44 @@ func (users Authorizator) Register(requisites *server.Requisites) (id int, err e
 	users[requisites.Login] = user
 
 	log.Printf("client has been registred: %s, %d", requisites.Login, user.ID)
-	return user.ID, nil
+	return nil
 }
 
 // Remove attempts to remove a user and returns the id if success
-func (users Authorizator) Remove(requisites *server.Requisites) (id int, err error) {
+func (users Authorizator) Remove(requisites *server.Requisites) error {
 	user, ok := users[requisites.Login]
 	if !ok {
-		return 0, server.ErrLogin
+		return server.ErrLogin
 	}
 	if requisites.Password != user.Password {
-		return 0, server.ErrPassword
+		return server.ErrPassword
 	}
 
 	delete(users, requisites.Login)
 
 	log.Printf("client removed: %s", requisites.Login)
-	return user.ID, nil
+	return nil
 }
 
 // ChangeRequisites changes requisites of user from requisitesOld to requisitesNew
-func (users Authorizator) ChangeRequisites(requisitesOld, requisitesNew *server.Requisites) (id int, err error) {
+func (users Authorizator) ChangeRequisites(requisitesOld, requisitesNew *server.Requisites) error {
 	user, ok := users[requisitesOld.Login]
 	if !ok {
-		return 0, server.ErrLogin
+		return server.ErrLogin
 	}
 	if requisitesOld.Password != user.Password {
-		return 0, server.ErrPassword
+		return server.ErrPassword
 	}
 
 	if _, ok := users[requisitesNew.Login]; ok {
-		return 0, server.ErrLoginOccupied
+		return server.ErrLoginOccupied
 	}
 
 	users[requisitesNew.Login] = users[requisitesOld.Login]
 	delete(users, requisitesOld.Login)
 	users[requisitesNew.Login].Password = requisitesNew.Password
 	log.Printf("requisites changed from: %v to %v", requisitesOld, requisitesNew)
-	return user.ID, nil
+	return nil
 }
 
 // Len returns number of users

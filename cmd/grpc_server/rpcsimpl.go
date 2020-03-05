@@ -106,52 +106,40 @@ func idFromCtx(ctx context.Context) (id int, err error) {
 
 // RegisterUser provides registration of user by authorizator.
 func (s *Server) RegisterUser(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
-	requisites, idCtx, err := requisitesFromContext(ctx)
-	if err != nil {
-		log.Printf("RegisterUser error: %s", err)
-		return &api.EmptyMessage{}, err
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return &api.EmptyMessage{}, ErrMissCred
 	}
+	login := strings.Join(md["login"], "")
 
-	if err != nil {
-		log.Printf("RegisterUser error: %s", err)
-		return &api.EmptyMessage{}, err
-	}
-
-	log.Printf("user with login: %s, id: %d registred", requisites.Login, idCtx)
-
+	log.Printf("user with login: %s registred", login)
 	return &api.EmptyMessage{}, nil
 }
 
 // RemoveUser provides removing of user by authorizator.
 func (s *Server) RemoveUser(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
-	requisites, idCtx, err := requisitesFromContext(ctx)
+	requisites, id, err := requisitesFromContext(ctx)
 	if err != nil {
 		log.Printf("RegisterUser error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
 
-	idAuth, err := s.authorizator.Remove(requisites)
+	err = s.authorizator.Remove(requisites)
 
 	if err != nil {
-		err := extGrpcError(ErrRemovingUser, fmt.Sprintf("user with login: %s, id: %d", requisites.Login, idAuth))
+		err := extGrpcError(ErrRemovingUser, fmt.Sprintf("user with login: %s, id: %d", requisites.Login, id))
 		log.Printf("RegisterUser error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
 
-	if idCtx != idAuth {
-		err := extGrpcError(ErrIDMatching, fmt.Sprintf("context id: %d, authorizator id: %d", idCtx, idAuth))
-		log.Printf("RegisterUser error: %s", err)
-		return &api.EmptyMessage{}, err
-	}
-
-	log.Printf("user with login: %s, id: %d removed", requisites.Login, idCtx)
+	log.Printf("user with login: %s, id: %d removed", requisites.Login, id)
 
 	return &api.EmptyMessage{}, nil
 }
 
 // ChangeUserRequisits provides change of requisits for user by authorizator.
 func (s *Server) ChangeUserRequisits(ctx context.Context, requisits *api.RequisitsMessage) (*api.EmptyMessage, error) {
-	requisitesOld, idCtx, err := requisitesFromContext(ctx)
+	requisitesOld, id, err := requisitesFromContext(ctx)
 	if err != nil {
 		log.Printf("RegisterUser error: %s", err)
 		return &api.EmptyMessage{}, err
@@ -162,23 +150,17 @@ func (s *Server) ChangeUserRequisits(ctx context.Context, requisits *api.Requisi
 		Password: requisits.Password,
 	}
 
-	idAuth, err := s.authorizator.ChangeRequisites(requisitesOld, requisitesNew)
+	err = s.authorizator.ChangeRequisites(requisitesOld, requisitesNew)
 
 	if err != nil {
 		err := extGrpcError(ErrChangeUser, fmt.Sprintf("user with login: %s, id: %d (new login: %s)",
-			requisitesOld.Login, idAuth, requisitesNew.Login))
-		log.Printf("RegisterUser error: %s", err)
-		return &api.EmptyMessage{}, err
-	}
-
-	if idCtx != idAuth {
-		err := extGrpcError(ErrIDMatching, fmt.Sprintf("context id: %d, authorizator id: %d", idCtx, idAuth))
+			requisitesOld.Login, id, requisitesNew.Login))
 		log.Printf("RegisterUser error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
 
 	log.Printf("user with login: %s, id: %d changed his requisites (new login: %s)",
-		requisitesOld.Login, idCtx, requisitesNew.Login)
+		requisitesOld.Login, id, requisitesNew.Login)
 
 	return &api.EmptyMessage{}, nil
 }

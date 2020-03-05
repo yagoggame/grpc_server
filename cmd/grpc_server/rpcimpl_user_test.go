@@ -32,11 +32,11 @@ import (
 
 var RegisterUserTests = []commonTestCase{
 	{
-		caseName: "No ID",
+		caseName: "No Cred",
 		times:    []int{1},
 		ret:      []error{nil},
-		want:     ErrGetIDFailed,
-		ctx:      userContext(someLogin, somePassword)},
+		want:     ErrMissCred,
+		ctx:      context.Background()},
 	{
 		caseName: "Normal",
 		times:    []int{1},
@@ -152,7 +152,7 @@ func TestRemoveUser(t *testing.T) {
 			gomock.InOrder(
 				authorizator.EXPECT().
 					Remove(matchByRequisites(&requisites)).
-					Return(correctID, test.ret[0]).
+					Return(test.ret[0]).
 					Times(test.times[0]),
 				pooler.EXPECT().
 					Release().
@@ -190,7 +190,7 @@ func TestChangeUserRequisites(t *testing.T) {
 			gomock.InOrder(
 				authorizator.EXPECT().
 					ChangeRequisites(matchByRequisites(&requisitesOld), matchByRequisites(&requisitesNew)).
-					Return(correctID, test.ret[0]).
+					Return(test.ret[0]).
 					Times(test.times[0]),
 				pooler.EXPECT().
 					Release().

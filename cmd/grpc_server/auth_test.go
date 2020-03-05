@@ -136,20 +136,20 @@ func TestUnarySkipAuth(t *testing.T) {
 				Password: somePassword,
 			}
 
-			var want iderr
+			var want error
 			if funcName == skipper {
-				want = iderr{id: correctID, err: nil}
+				want = ErrGetIDFailed
 
 				gomock.InOrder(
 					authorizator.EXPECT().
 						Register(&requisites).
-						Return(correctID, nil).
+						Return(nil).
 						Times(1),
 					pooler.EXPECT().
 						Release().
 						Times(1))
 			} else {
-				want = iderr{id: 0, err: status.Error(codes.Unauthenticated, server.ErrLogin.Error())}
+				want = status.Error(codes.Unauthenticated, server.ErrLogin.Error())
 
 				gomock.InOrder(
 					authorizator.EXPECT().
@@ -161,10 +161,9 @@ func TestUnarySkipAuth(t *testing.T) {
 						Times(1))
 			}
 
-			val, err := unaryInterceptor(userContext(someLogin, somePassword), nil,
+			_, err := unaryInterceptor(userContext(someLogin, somePassword), nil,
 				&grpc.UnaryServerInfo{Server: s, FullMethod: "SomePrefix" + funcName}, handler)
-			ival := transform(t, val, err)
-			testIDErr(t, &iderr{id: ival, err: err}, &want)
+			testErr(t, err, want)
 		})
 	}
 }

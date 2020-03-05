@@ -69,38 +69,39 @@ const (
 
 // authenticateAgent checks the client credentials.
 func authenticateClient(ctx context.Context, s *Server) (int, error) {
-	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		requisites := server.Requisites{
-			Login:    strings.Join(md["login"], ""),
-			Password: strings.Join(md["password"], ""),
-		}
-
-		id, err := s.authorizator.Authorize(&requisites)
-		if err != nil {
-			return 0, status.Error(codes.Unauthenticated, err.Error())
-		}
-		return id, nil
-
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return 0, ErrMissCred
 	}
-	return 0, ErrMissCred
+	requisites := server.Requisites{
+		Login:    strings.Join(md["login"], ""),
+		Password: strings.Join(md["password"], ""),
+	}
+
+	id, err := s.authorizator.Authorize(&requisites)
+	if err != nil {
+		return 0, status.Error(codes.Unauthenticated, err.Error())
+	}
+	return id, nil
 }
 
 // authenticateAgent checks the client credentials.
-func registerClient(ctx context.Context, s *Server) (int, error) {
-	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		requisites := server.Requisites{
-			Login:    strings.Join(md["login"], ""),
-			Password: strings.Join(md["password"], ""),
-		}
-
-		id, err := s.authorizator.Register(&requisites)
-		if err != nil {
-			return 0, status.Error(codes.Unauthenticated, err.Error())
-		}
-		return id, nil
-
+func registerClient(ctx context.Context, s *Server) error {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return ErrMissCred
 	}
-	return 0, ErrMissCred
+
+	requisites := server.Requisites{
+		Login:    strings.Join(md["login"], ""),
+		Password: strings.Join(md["password"], ""),
+	}
+
+	err := s.authorizator.Register(&requisites)
+	if err != nil {
+		return status.Error(codes.Unauthenticated, err.Error())
+	}
+	return nil
 }
 
 // unaryInterceptor calls authenticateClient with current context.
@@ -111,11 +112,10 @@ func unaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServ
 	}
 
 	if strings.HasSuffix(info.FullMethod, "RegisterUser") {
-		clientID, err := registerClient(ctx, s)
+		err := registerClient(ctx, s)
 		if err != nil {
 			return nil, err
 		}
-		ctx = context.WithValue(ctx, clientIDKey, clientID)
 		return handler(ctx, req)
 	}
 
