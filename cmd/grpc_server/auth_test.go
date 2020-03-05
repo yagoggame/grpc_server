@@ -29,9 +29,9 @@ import (
 )
 
 var (
-	correctLogin    string = "JoeLogin"
-	correctPassword        = "JoePassword"
-	correctID              = 1
+	someLogin    string = "JoeLogin"
+	somePassword        = "JoePassword"
+	correctID           = 1
 )
 
 type iderr struct {
@@ -53,7 +53,7 @@ var authorizationTests = []struct {
 		fncGenServer: genSrv,
 		ret:          &iderr{id: correctID, err: nil},
 		want:         &iderr{id: correctID, err: nil},
-		ctx:          userContext(correctLogin, correctPassword)},
+		ctx:          userContext(someLogin, somePassword)},
 	{
 		caseName: "missing credentials", timesAuth: 0, timesRel: 1,
 		fncGenServer: genSrv,
@@ -61,23 +61,23 @@ var authorizationTests = []struct {
 		want:         &iderr{id: 0, err: ErrMissCred},
 		ctx:          context.Background()},
 	{
-		caseName: "wrong ogin", timesAuth: 1, timesRel: 1,
+		caseName: "wrong login", timesAuth: 1, timesRel: 1,
 		fncGenServer: genSrv,
 		ret:          &iderr{id: 0, err: server.ErrLogin},
 		want:         &iderr{id: 0, err: status.Error(codes.Unauthenticated, server.ErrLogin.Error())},
-		ctx:          userContext(correctLogin, correctPassword)},
+		ctx:          userContext(someLogin, somePassword)},
 	{
 		caseName: "wrong password", timesAuth: 1, timesRel: 1,
 		fncGenServer: genSrv,
 		ret:          &iderr{id: 0, err: server.ErrPassword},
 		want:         &iderr{id: 0, err: status.Error(codes.Unauthenticated, server.ErrPassword.Error())},
-		ctx:          userContext(correctLogin, correctPassword)},
+		ctx:          userContext(someLogin, somePassword)},
 	{
 		caseName: "fake server", timesAuth: 0, timesRel: 0,
 		fncGenServer: genFakeSrv,
 		ret:          &iderr{id: correctID, err: nil},
 		want:         &iderr{id: 0, err: ErrServerCast},
-		ctx:          userContext(correctLogin, correctPassword)},
+		ctx:          userContext(someLogin, somePassword)},
 }
 
 func TestUnaryInterceptor(t *testing.T) {
@@ -94,8 +94,8 @@ func TestUnaryInterceptor(t *testing.T) {
 			}
 
 			requisites := server.Requisites{
-				Login:    correctLogin,
-				Password: correctPassword,
+				Login:    someLogin,
+				Password: somePassword,
 			}
 
 			gomock.InOrder(
@@ -112,6 +112,60 @@ func TestUnaryInterceptor(t *testing.T) {
 				&grpc.UnaryServerInfo{Server: s}, handler)
 			ival := transform(t, val, err)
 			testIDErr(t, &iderr{id: ival, err: err}, test.want)
+		})
+	}
+}
+
+func TestUnarySkipAuth(t *testing.T) {
+	funcNames := []string{"RegisterUser", "RemoveUser", "ChangeUserRequisits",
+		"EnterTheLobby", "LeaveTheLobby", "JoinTheGame", "WaitTheTurn", "LeaveTheGame", "MakeTurn"}
+	skipper := "RegisterUser"
+
+	for _, funcName := range funcNames {
+
+		t.Run(funcName, func(t *testing.T) {
+			controller := gomock.NewController(t)
+			defer controller.Finish()
+
+			authorizator := mocks.NewMockAuthorizator(controller)
+			pooler := mocks.NewMockPooler(controller)
+			s := newServer(authorizator, pooler, nil)
+			defer s.Release()
+
+			requisites := server.Requisites{
+				Login:    someLogin,
+				Password: somePassword,
+			}
+
+			var want iderr
+			if funcName == skipper {
+				want = iderr{id: correctID, err: nil}
+
+				gomock.InOrder(
+					authorizator.EXPECT().
+						Register(&requisites).
+						Return(correctID, nil).
+						Times(1),
+					pooler.EXPECT().
+						Release().
+						Times(1))
+			} else {
+				want = iderr{id: 0, err: status.Error(codes.Unauthenticated, server.ErrLogin.Error())}
+
+				gomock.InOrder(
+					authorizator.EXPECT().
+						Authorize(&requisites).
+						Return(0, server.ErrLogin).
+						Times(1),
+					pooler.EXPECT().
+						Release().
+						Times(1))
+			}
+
+			val, err := unaryInterceptor(userContext(someLogin, somePassword), nil,
+				&grpc.UnaryServerInfo{Server: s, FullMethod: "SomePrefix" + funcName}, handler)
+			ival := transform(t, val, err)
+			testIDErr(t, &iderr{id: ival, err: err}, &want)
 		})
 	}
 }

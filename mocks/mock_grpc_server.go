@@ -51,6 +51,21 @@ func (mr *MockAuthorizatorMockRecorder) Authorize(arg0 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Authorize", reflect.TypeOf((*MockAuthorizator)(nil).Authorize), arg0)
 }
 
+// Register mocks base method
+func (m *MockAuthorizator) Register(arg0 *server.Requisites) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Register", arg0)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Register indicates an expected call of Register
+func (mr *MockAuthorizatorMockRecorder) Register(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockAuthorizator)(nil).Register), arg0)
+}
+
 // MockPooler is a mock of Pooler interface
 type MockPooler struct {
 	ctrl     *gomock.Controller

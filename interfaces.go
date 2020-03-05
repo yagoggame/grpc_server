@@ -31,6 +31,7 @@ import (
 // and returns id of user in the case of success
 type Authorizator interface {
 	Authorize(requisites *Requisites) (id int, err error)
+	Register(requisites *Requisites) (id int, err error)
 }
 
 // Requisites contains login and password of user

@@ -85,6 +85,24 @@ func authenticateClient(ctx context.Context, s *Server) (int, error) {
 	return 0, ErrMissCred
 }
 
+// authenticateAgent checks the client credentials.
+func registerClient(ctx context.Context, s *Server) (int, error) {
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		requisites := server.Requisites{
+			Login:    strings.Join(md["login"], ""),
+			Password: strings.Join(md["password"], ""),
+		}
+
+		id, err := s.authorizator.Register(&requisites)
+		if err != nil {
+			return 0, status.Error(codes.Unauthenticated, err.Error())
+		}
+		return id, nil
+
+	}
+	return 0, ErrMissCred
+}
+
 // unaryInterceptor calls authenticateClient with current context.
 func unaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	s, ok := info.Server.(*Server)
@@ -92,15 +110,21 @@ func unaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServ
 		return nil, ErrServerCast
 	}
 
-	if !strings.HasSuffix(info.FullMethod, "RegisterUser") {
-		clientID, err := authenticateClient(ctx, s)
+	if strings.HasSuffix(info.FullMethod, "RegisterUser") {
+		clientID, err := registerClient(ctx, s)
 		if err != nil {
 			return nil, err
 		}
-
 		ctx = context.WithValue(ctx, clientIDKey, clientID)
+		return handler(ctx, req)
 	}
 
+	clientID, err := authenticateClient(ctx, s)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx = context.WithValue(ctx, clientIDKey, clientID)
 	return handler(ctx, req)
 }
 

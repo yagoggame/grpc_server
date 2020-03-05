@@ -60,13 +60,13 @@ var commonRPCTests = []commonTestCase{
 		times:    []int{0, 1},
 		ret:      []error{nil},
 		want:     ErrGetIDFailed,
-		ctx:      userContext(correctLogin, correctPassword)},
+		ctx:      userContext(someLogin, somePassword)},
 	{
 		caseName: "Normal",
 		times:    []int{1, 1},
 		ret:      []error{nil},
 		want:     nil,
-		ctx: context.WithValue(userContext(correctLogin, correctPassword),
+		ctx: context.WithValue(userContext(someLogin, somePassword),
 			clientIDKey, correctID)},
 }
 
@@ -88,7 +88,7 @@ var EnterTheLobbyTests = []commonTestCase{
 		times:    []int{1, 1},
 		ret:      []error{errors.New("some internal error")},
 		want:     ErrAddGamer,
-		ctx: context.WithValue(userContext(correctLogin, correctPassword),
+		ctx: context.WithValue(userContext(someLogin, somePassword),
 			clientIDKey, correctID)},
 }
 
@@ -98,7 +98,7 @@ var LeaveTheLobbyTests = []commonTestCase{
 		times:    []int{1, 1},
 		ret:      []error{errors.New("some internal error")},
 		want:     ErrLeaveLobby,
-		ctx: context.WithValue(userContext(correctLogin, correctPassword),
+		ctx: context.WithValue(userContext(someLogin, somePassword),
 			clientIDKey, correctID)},
 }
 
@@ -108,7 +108,7 @@ var LeaveTheGameTests = []commonTestCase{
 		times:    []int{1, 1},
 		ret:      []error{errors.New("some internal error")},
 		want:     ErrReleaseGame,
-		ctx: context.WithValue(userContext(correctLogin, correctPassword),
+		ctx: context.WithValue(userContext(someLogin, somePassword),
 			clientIDKey, correctID)},
 }
 
@@ -151,7 +151,7 @@ func TestLeaveTheGame(t *testing.T) {
 func performTestEnterTheLobby(t *testing.T, args singleTestArgs) {
 	gomock.InOrder(
 		args.pooler.EXPECT().
-			AddGamer(matchByGamerPtr(&game.Gamer{Name: correctLogin, ID: correctID})).
+			AddGamer(matchByGamerPtr(&game.Gamer{Name: someLogin, ID: correctID})).
 			Return(args.test.ret[0]).
 			Times(args.test.times[0]),
 		args.pooler.EXPECT().
@@ -166,7 +166,7 @@ func performTestLeaveTheLobby(t *testing.T, args singleTestArgs) {
 	gomock.InOrder(
 		args.pooler.EXPECT().
 			RmGamer(correctID).
-			Return(&game.Gamer{Name: correctLogin, ID: correctID}, args.test.ret[0]).
+			Return(&game.Gamer{Name: someLogin, ID: correctID}, args.test.ret[0]).
 			Times(args.test.times[0]),
 		args.pooler.EXPECT().
 			Release().
