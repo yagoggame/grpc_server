@@ -46,7 +46,7 @@ var RegisterUserTests = []commonTestCase{
 			clientIDKey, correctID)},
 }
 
-var RemoveUserTests = []commonTestCase{
+var commonAuthTests = []commonTestCase{
 	{
 		caseName: "No Cred",
 		times:    []int{0, 1},
@@ -71,15 +71,35 @@ var RemoveUserTests = []commonTestCase{
 		ret:      []error{nil, nil},
 		want:     ErrGetIDFailed,
 		ctx:      userContext(someLogin, somePassword)},
+}
+
+var removingUserTests = []commonTestCase{
 	{
 		caseName: "removing error",
 		times:    []int{1, 1},
-		ret:      []error{server.ErrLoginOccupied, nil},
+		ret:      []error{server.ErrPassword, nil},
 		want:     ErrRemovingUser,
 		ctx: context.WithValue(userContext(someLogin, somePassword),
 			clientIDKey, correctID)},
 	{
 		caseName: "removing success",
+		times:    []int{1, 1},
+		ret:      []error{nil, nil},
+		want:     nil,
+		ctx: context.WithValue(userContext(someLogin, somePassword),
+			clientIDKey, correctID)},
+}
+
+var changingUserTests = []commonTestCase{
+	{
+		caseName: "changing error",
+		times:    []int{1, 1},
+		ret:      []error{server.ErrLoginOccupied, nil},
+		want:     ErrChangeUser,
+		ctx: context.WithValue(userContext(someLogin, somePassword),
+			clientIDKey, correctID)},
+	{
+		caseName: "changing success",
 		times:    []int{1, 1},
 		ret:      []error{nil, nil},
 		want:     nil,
@@ -112,8 +132,9 @@ func TestRegisterUser(t *testing.T) {
 
 func TestRemoveUser(t *testing.T) {
 	log.SetOutput(ioutil.Discard)
+	tests := composeTests(commonAuthTests, removingUserTests)
 
-	for _, test := range RemoveUserTests {
+	for _, test := range tests {
 		t.Run(test.caseName, func(t *testing.T) {
 			controller := gomock.NewController(t)
 			defer controller.Finish()
@@ -138,6 +159,46 @@ func TestRemoveUser(t *testing.T) {
 					Times(test.times[1]))
 
 			_, err := s.RemoveUser(test.ctx, &api.EmptyMessage{})
+			testErr(t, err, test.want)
+		})
+	}
+}
+
+func TestChangeUserRequisites(t *testing.T) {
+	log.SetOutput(ioutil.Discard)
+	tests := composeTests(commonAuthTests, changingUserTests)
+
+	for _, test := range tests {
+		t.Run(test.caseName, func(t *testing.T) {
+			controller := gomock.NewController(t)
+			defer controller.Finish()
+
+			authorizator := mocks.NewMockAuthorizator(controller)
+			pooler := mocks.NewMockPooler(controller)
+			s := newServer(authorizator, pooler, nil)
+			defer s.Release()
+
+			requisitesOld := server.Requisites{
+				Login:    someLogin,
+				Password: somePassword,
+			}
+			requisitesNew := server.Requisites{
+				Login:    someLogin + "New",
+				Password: somePassword + "New",
+			}
+
+			gomock.InOrder(
+				authorizator.EXPECT().
+					ChangeRequisites(matchByRequisites(&requisitesOld), matchByRequisites(&requisitesNew)).
+					Return(correctID, test.ret[0]).
+					Times(test.times[0]),
+				pooler.EXPECT().
+					Release().
+					Times(test.times[1]))
+
+			_, err := s.ChangeUserRequisits(test.ctx, &api.RequisitsMessage{
+				Login:    requisitesNew.Login,
+				Password: requisitesNew.Password})
 			testErr(t, err, test.want)
 		})
 	}
