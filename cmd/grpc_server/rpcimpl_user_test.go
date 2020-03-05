@@ -144,14 +144,9 @@ func TestRemoveUser(t *testing.T) {
 			s := newServer(authorizator, pooler, nil)
 			defer s.Release()
 
-			requisites := server.Requisites{
-				Login:    someLogin,
-				Password: somePassword,
-			}
-
 			gomock.InOrder(
 				authorizator.EXPECT().
-					Remove(matchByRequisites(&requisites)).
+					Remove(matchByRequisites(&usualRequisites)).
 					Return(test.ret[0]).
 					Times(test.times[0]),
 				pooler.EXPECT().
@@ -178,10 +173,7 @@ func TestChangeUserRequisites(t *testing.T) {
 			s := newServer(authorizator, pooler, nil)
 			defer s.Release()
 
-			requisitesOld := server.Requisites{
-				Login:    someLogin,
-				Password: somePassword,
-			}
+			requisitesOld := usualRequisites
 			requisitesNew := server.Requisites{
 				Login:    someLogin + "New",
 				Password: somePassword + "New",

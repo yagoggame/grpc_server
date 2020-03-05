@@ -89,21 +89,6 @@ func newServer(authorizator server.Authorizator, pool server.Pooler, gameGeter s
 	}
 }
 
-// idFromCtx gets id as integer from context.
-func idFromCtx(ctx context.Context) (id int, err error) {
-	iid := ctx.Value(clientIDKey)
-	if iid == nil {
-		return 0, ErrGetIDFailed
-	}
-
-	id, ok := iid.(int)
-	if !ok {
-		return 0, fmt.Errorf("%w: %T", ErrWrongIDType, iid)
-	}
-
-	return id, nil
-}
-
 // RegisterUser provides registration of user by authorizator.
 func (s *Server) RegisterUser(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
@@ -308,6 +293,21 @@ func (s *Server) MakeTurn(ctx context.Context, in *api.TurnMessage) (*api.EmptyM
 // Release sops the server intity.
 func (s *Server) Release() {
 	s.pool.Release()
+}
+
+// idFromCtx gets id as integer from context.
+func idFromCtx(ctx context.Context) (id int, err error) {
+	iid := ctx.Value(clientIDKey)
+	if iid == nil {
+		return 0, ErrGetIDFailed
+	}
+
+	id, ok := iid.(int)
+	if !ok {
+		return 0, fmt.Errorf("%w: %T", ErrWrongIDType, iid)
+	}
+
+	return id, nil
 }
 
 func userFromContext(ctx context.Context) (gamer *game.Gamer, err error) {

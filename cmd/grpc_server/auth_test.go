@@ -34,6 +34,11 @@ var (
 	correctID           = 1
 )
 
+var usualRequisites = server.Requisites{
+	Login:    someLogin,
+	Password: somePassword,
+}
+
 type iderr struct {
 	id  int
 	err error
@@ -93,14 +98,9 @@ func TestUnaryInterceptor(t *testing.T) {
 				defer s.Release()
 			}
 
-			requisites := server.Requisites{
-				Login:    someLogin,
-				Password: somePassword,
-			}
-
 			gomock.InOrder(
 				authorizator.EXPECT().
-					Authorize(&requisites).
+					Authorize(&usualRequisites).
 					Return(test.ret.id, test.ret.err).
 					Times(test.timesAuth),
 				pooler.EXPECT().
@@ -131,39 +131,36 @@ func TestUnarySkipAuth(t *testing.T) {
 			s := newServer(authorizator, pooler, nil)
 			defer s.Release()
 
-			requisites := server.Requisites{
-				Login:    someLogin,
-				Password: somePassword,
-			}
-
-			var want error
-			if funcName == skipper {
-				want = ErrGetIDFailed
-
-				gomock.InOrder(
-					authorizator.EXPECT().
-						Register(&requisites).
-						Return(nil).
-						Times(1),
-					pooler.EXPECT().
-						Release().
-						Times(1))
-			} else {
-				want = status.Error(codes.Unauthenticated, server.ErrLogin.Error())
-
-				gomock.InOrder(
-					authorizator.EXPECT().
-						Authorize(&requisites).
-						Return(0, server.ErrLogin).
-						Times(1),
-					pooler.EXPECT().
-						Release().
-						Times(1))
-			}
+			want := gomockDependsOnSkiper(funcName == skipper, authorizator, pooler)
 
 			_, err := unaryInterceptor(userContext(someLogin, somePassword), nil,
 				&grpc.UnaryServerInfo{Server: s, FullMethod: "SomePrefix" + funcName}, handler)
 			testErr(t, err, want)
 		})
 	}
+}
+
+func gomockDependsOnSkiper(isSkiper bool,
+	authorizator *mocks.MockAuthorizator, pooler *mocks.MockPooler) error {
+	if isSkiper {
+		gomock.InOrder(
+			authorizator.EXPECT().
+				Register(&usualRequisites).
+				Return(nil).
+				Times(1),
+			pooler.EXPECT().
+				Release().
+				Times(1))
+		return ErrGetIDFailed
+	}
+	gomock.InOrder(
+		authorizator.EXPECT().
+			Authorize(&usualRequisites).
+			Return(0, server.ErrLogin).
+			Times(1),
+		pooler.EXPECT().
+			Release().
+			Times(1))
+
+	return status.Error(codes.Unauthenticated, server.ErrLogin.Error())
 }
