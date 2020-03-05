@@ -32,6 +32,8 @@ import (
 type Authorizator interface {
 	Authorize(requisites *Requisites) (id int, err error)
 	Register(requisites *Requisites) (id int, err error)
+	Remove(requisites *Requisites) (id int, err error)
+	ChangeRequisites(requisitesOld, requisitesNew *Requisites) (id int, err error)
 }
 
 // Requisites contains login and password of user

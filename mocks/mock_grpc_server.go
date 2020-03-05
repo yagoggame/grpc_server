@@ -51,6 +51,21 @@ func (mr *MockAuthorizatorMockRecorder) Authorize(arg0 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Authorize", reflect.TypeOf((*MockAuthorizator)(nil).Authorize), arg0)
 }
 
+// ChangeRequisites mocks base method
+func (m *MockAuthorizator) ChangeRequisites(arg0, arg1 *server.Requisites) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ChangeRequisites", arg0, arg1)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ChangeRequisites indicates an expected call of ChangeRequisites
+func (mr *MockAuthorizatorMockRecorder) ChangeRequisites(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeRequisites", reflect.TypeOf((*MockAuthorizator)(nil).ChangeRequisites), arg0, arg1)
+}
+
 // Register mocks base method
 func (m *MockAuthorizator) Register(arg0 *server.Requisites) (int, error) {
 	m.ctrl.T.Helper()
@@ -64,6 +79,21 @@ func (m *MockAuthorizator) Register(arg0 *server.Requisites) (int, error) {
 func (mr *MockAuthorizatorMockRecorder) Register(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockAuthorizator)(nil).Register), arg0)
+}
+
+// Remove mocks base method
+func (m *MockAuthorizator) Remove(arg0 *server.Requisites) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Remove", arg0)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Remove indicates an expected call of Remove
+func (mr *MockAuthorizatorMockRecorder) Remove(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockAuthorizator)(nil).Remove), arg0)
 }
 
 // MockPooler is a mock of Pooler interface
