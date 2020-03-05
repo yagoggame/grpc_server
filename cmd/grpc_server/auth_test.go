@@ -93,9 +93,14 @@ func TestUnaryInterceptor(t *testing.T) {
 				defer s.Release()
 			}
 
+			requisites := server.Requisites{
+				Login:    correctLogin,
+				Password: correctPassword,
+			}
+
 			gomock.InOrder(
 				authorizator.EXPECT().
-					Authorize(correctLogin, correctPassword).
+					Authorize(&requisites).
 					Return(test.ret.id, test.ret.err).
 					Times(test.timesAuth),
 				pooler.EXPECT().

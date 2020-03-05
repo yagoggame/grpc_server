@@ -96,6 +96,21 @@ func idFromCtx(ctx context.Context) (id int, err error) {
 	return id, nil
 }
 
+// RegisterUser provides registration of user by authorizator.
+func (s *Server) RegisterUser(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
+	return &api.EmptyMessage{}, nil
+}
+
+// RemoveUser provides removing of user by authorizator.
+func (s *Server) RemoveUser(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
+	return &api.EmptyMessage{}, nil
+}
+
+// ChangeUserRequisits provides change of requisits for user by authorizator.
+func (s *Server) ChangeUserRequisits(ctx context.Context, requisits *api.RequisitsMessage) (*api.EmptyMessage, error) {
+	return &api.EmptyMessage{}, nil
+}
+
 // EnterTheLobby puts a player into the lobby.
 func (s *Server) EnterTheLobby(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
 	gamer, err := userFromContext(ctx)

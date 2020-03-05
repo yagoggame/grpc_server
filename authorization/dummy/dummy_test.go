@@ -17,6 +17,8 @@
 package dummy
 
 import (
+	"io/ioutil"
+	"log"
 	"testing"
 
 	server "github.com/yagoggame/grpc_server"
@@ -27,38 +29,124 @@ type iderr struct {
 	err error
 }
 
-var tests = []struct {
-	caseName string
-	login    string
-	password string
-	want     iderr
+var testsCommon = []struct {
+	caseName   string
+	requisites server.Requisites
+	want       iderr
 }{
 	{
-		caseName: "correct",
-		login:    "Joe", password: "aaa",
-		want: iderr{id: 1, err: nil}},
+		caseName: "unregistred login",
+		requisites: server.Requisites{
+			Login:    "Piter",
+			Password: "aaa",
+		},
+		want: iderr{id: 0, err: server.ErrLogin},
+	},
 	{
-		caseName: "wrong login",
-		login:    "JJooee", password: "aaa",
-		want: iderr{id: 0, err: server.ErrLogin}},
+		caseName: "registred login wrong password",
+		requisites: server.Requisites{
+			Login:    "Joe",
+			Password: "ababab",
+		},
+		want: iderr{id: 0, err: server.ErrPassword},
+	},
 	{
-		caseName: "wrong password",
-		login:    "Joe", password: "ababab",
-		want: iderr{id: 0, err: server.ErrPassword}},
+		caseName: "registred login",
+		requisites: server.Requisites{
+			Login:    "Joe",
+			Password: "aaa",
+		},
+		want: iderr{id: 2, err: nil},
+	},
+	{
+		caseName: "registred login",
+		requisites: server.Requisites{
+			Login:    "Nick",
+			Password: "bbb",
+		},
+		want: iderr{id: 3, err: nil},
+	},
 }
 
-func TestMain(t *testing.T) {
+var testsRegister = []struct {
+	caseName   string
+	requisites server.Requisites
+	want       iderr
+}{
+	{
+		caseName: "registred login",
+		requisites: server.Requisites{
+			Login:    "Joe",
+			Password: "aaa",
+		},
+		want: iderr{id: 0, err: server.ErrLoginOccupied}},
+	{
+		caseName: "unregistred login first",
+		requisites: server.Requisites{
+			Login:    "Piter",
+			Password: "aaa",
+		},
+		want: iderr{id: 1, err: nil}},
+	{
+		caseName: "unregistred login second",
+		requisites: server.Requisites{
+			Login:    "Mike",
+			Password: "mmm",
+		},
+		want: iderr{id: 4, err: nil}},
+}
+
+func TestAuthorize(t *testing.T) {
+	log.SetOutput(ioutil.Discard)
 	authorizator := New()
-	for _, test := range tests {
+	for _, test := range testsCommon {
 		t.Run(test.caseName, func(t *testing.T) {
+			id, err := authorizator.Authorize(&test.requisites)
+
+			testIDErr(t, test.want, iderr{id: id, err: err})
+		})
+	}
+}
+
+func TestRegister(t *testing.T) {
+	log.SetOutput(ioutil.Discard)
+	authorizator := New()
+
+	for _, test := range testsRegister {
+		t.Run(test.caseName, func(t *testing.T) {
+			id, err := authorizator.Register(&test.requisites)
+
+			testIDErr(t, test.want, iderr{id: id, err: err})
+		})
+	}
+}
+
+func TestRemove(t *testing.T) {
+	log.SetOutput(ioutil.Discard)
+	authorizator := New()
+
+	for _, test := range testsCommon {
+		t.Run(test.caseName, func(t *testing.T) {
+			usersLen := authorizator.Len()
+			id, err := authorizator.Remove(&test.requisites)
+
+			testIDErr(t, test.want, iderr{id: id, err: err})
+
+			if err != nil && usersLen != authorizator.Len() {
+				t.Errorf("Unexpected count of user delta:\nwant: 0\ngot: %d.", authorizator.Len()-usersLen)
+			} else if err == nil && usersLen == authorizator.Len() {
+				t.Errorf("Unexpected count of user delta:\nwant: -1\ngot: %d.", authorizator.Len()-usersLen)
+			}
 
 		})
-		id, err := authorizator.Authorize(test.login, test.password)
-		if id != test.want.id {
-			t.Errorf("Unexpected id:\nwant: %d,\ngot: %d.", test.want.id, id)
-		}
-		if err != test.want.err {
-			t.Errorf("Unexpected id:\nwant: %v,\ngot: %v.", test.want.err, err)
-		}
+	}
+}
+
+func testIDErr(t *testing.T, want, got iderr) {
+	if got.id != want.id {
+		t.Errorf("Unexpected id:\nwant: %d,\ngot: %d.", want.id, got.id)
+	}
+	if got.err != want.err {
+		t.Errorf("Unexpected err:\nwant: %v,\ngot: %v.", want.err, got.err)
 	}
 }

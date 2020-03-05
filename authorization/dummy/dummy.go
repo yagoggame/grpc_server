@@ -19,6 +19,7 @@ package dummy
 
 import (
 	"log"
+	"sort"
 
 	server "github.com/yagoggame/grpc_server"
 )
@@ -35,21 +36,76 @@ type Authorizator map[string]User
 // New constructs new Authorizator
 func New() Authorizator {
 	return map[string]User{
-		"Joe":  User{Password: "aaa", ID: 1},
-		"Nick": User{Password: "bbb", ID: 2},
+		"Joe":  User{Password: "aaa", ID: 2},
+		"Nick": User{Password: "bbb", ID: 3},
 	}
 }
 
-// Authorize attempts to authorize user and returns the id if success
-func (users Authorizator) Authorize(login, password string) (id int, err error) {
-	usr, ok := users[login]
+// Authorize attempts to authorize a user and returns the id if success
+func (users Authorizator) Authorize(requisites *server.Requisites) (id int, err error) {
+	user, ok := users[requisites.Login]
 	if !ok {
 		return 0, server.ErrLogin
 	}
 
-	if password != usr.Password {
+	if requisites.Password != user.Password {
 		return 0, server.ErrPassword
 	}
-	log.Printf("authenticated client: %s", login)
+	log.Printf("authenticated client: %s, %d", requisites.Login, user.ID)
+	return user.ID, nil
+}
+
+// Register attempts to register a new user and returns the id if success
+func (users Authorizator) Register(requisites *server.Requisites) (id int, err error) {
+	user, ok := users[requisites.Login]
+	if ok {
+		return 0, server.ErrLoginOccupied
+	}
+
+	user = User{
+		Password: requisites.Password,
+		ID:       users.getFirstVacantID(),
+	}
+	users[requisites.Login] = user
+
+	log.Printf("client has been registred: %s, %d", requisites.Login, user.ID)
+	return user.ID, nil
+}
+
+// Remove attempts to remove a user and returns the id if success
+func (users Authorizator) Remove(requisites *server.Requisites) (id int, err error) {
+	usr, ok := users[requisites.Login]
+	if !ok {
+		return 0, server.ErrLogin
+	}
+
+	if requisites.Password != usr.Password {
+		return 0, server.ErrPassword
+	}
+
+	delete(users, requisites.Login)
+
+	log.Printf("client removed: %s", requisites.Login)
 	return usr.ID, nil
+}
+
+// Len returns number of users
+func (users Authorizator) Len() int {
+	return len(users)
+}
+
+func (users Authorizator) getFirstVacantID() (id int) {
+	ids := make([]int, 0, len(users))
+	for _, user := range users {
+		ids = append(ids, user.ID)
+	}
+	sort.Ints(ids)
+
+	var i int
+	for i = range ids {
+		if i+1 != ids[i] {
+			return i + 1
+		}
+	}
+	return i + 2
 }

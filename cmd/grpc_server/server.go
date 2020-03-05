@@ -26,6 +26,7 @@ import (
 
 	"github.com/yagoggame/api"
 	"github.com/yagoggame/gomaster"
+	server "github.com/yagoggame/grpc_server"
 	"github.com/yagoggame/grpc_server/authorization/dummy"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -69,10 +70,12 @@ const (
 // authenticateAgent checks the client credentials.
 func authenticateClient(ctx context.Context, s *Server) (int, error) {
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		clientLogin := strings.Join(md["login"], "")
-		clientPassword := strings.Join(md["password"], "")
+		requisites := server.Requisites{
+			Login:    strings.Join(md["login"], ""),
+			Password: strings.Join(md["password"], ""),
+		}
 
-		id, err := s.authorizator.Authorize(clientLogin, clientPassword)
+		id, err := s.authorizator.Authorize(&requisites)
 		if err != nil {
 			return 0, status.Error(codes.Unauthenticated, err.Error())
 		}
@@ -89,12 +92,15 @@ func unaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServ
 		return nil, ErrServerCast
 	}
 
-	clientID, err := authenticateClient(ctx, s)
-	if err != nil {
-		return nil, err
+	if !strings.HasSuffix(info.FullMethod, "RegisterUser") {
+		clientID, err := authenticateClient(ctx, s)
+		if err != nil {
+			return nil, err
+		}
+
+		ctx = context.WithValue(ctx, clientIDKey, clientID)
 	}
 
-	ctx = context.WithValue(ctx, clientIDKey, clientID)
 	return handler(ctx, req)
 }
 

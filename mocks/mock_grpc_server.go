@@ -37,18 +37,18 @@ func (m *MockAuthorizator) EXPECT() *MockAuthorizatorMockRecorder {
 }
 
 // Authorize mocks base method
-func (m *MockAuthorizator) Authorize(arg0, arg1 string) (int, error) {
+func (m *MockAuthorizator) Authorize(arg0 *server.Requisites) (int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Authorize", arg0, arg1)
+	ret := m.ctrl.Call(m, "Authorize", arg0)
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Authorize indicates an expected call of Authorize
-func (mr *MockAuthorizatorMockRecorder) Authorize(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockAuthorizatorMockRecorder) Authorize(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Authorize", reflect.TypeOf((*MockAuthorizator)(nil).Authorize), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Authorize", reflect.TypeOf((*MockAuthorizator)(nil).Authorize), arg0)
 }
 
 // MockPooler is a mock of Pooler interface

@@ -30,7 +30,13 @@ import (
 // Authorize performs authorization of user by login and password
 // and returns id of user in the case of success
 type Authorizator interface {
-	Authorize(login, password string) (id int, err error)
+	Authorize(requisites *Requisites) (id int, err error)
+}
+
+// Requisites contains login and password of user
+type Requisites struct {
+	Login    string
+	Password string
 }
 
 // Pooler is the interface that groups the AddGamer, RmGamer, JoinGame,
