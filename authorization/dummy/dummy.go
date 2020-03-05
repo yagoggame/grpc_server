@@ -31,13 +31,13 @@ type User struct {
 }
 
 // Authorizator implements server.Authorizator interface
-type Authorizator map[string]User
+type Authorizator map[string]*User
 
 // New constructs new Authorizator
 func New() Authorizator {
-	return map[string]User{
-		"Joe":  User{Password: "aaa", ID: 2},
-		"Nick": User{Password: "bbb", ID: 3},
+	return map[string]*User{
+		"Joe":  &User{Password: "aaa", ID: 2},
+		"Nick": &User{Password: "bbb", ID: 3},
 	}
 }
 
@@ -47,10 +47,10 @@ func (users Authorizator) Authorize(requisites *server.Requisites) (id int, err 
 	if !ok {
 		return 0, server.ErrLogin
 	}
-
 	if requisites.Password != user.Password {
 		return 0, server.ErrPassword
 	}
+
 	log.Printf("authenticated client: %s, %d", requisites.Login, user.ID)
 	return user.ID, nil
 }
@@ -62,7 +62,7 @@ func (users Authorizator) Register(requisites *server.Requisites) (id int, err e
 		return 0, server.ErrLoginOccupied
 	}
 
-	user = User{
+	user = &User{
 		Password: requisites.Password,
 		ID:       users.getFirstVacantID(),
 	}
@@ -74,19 +74,39 @@ func (users Authorizator) Register(requisites *server.Requisites) (id int, err e
 
 // Remove attempts to remove a user and returns the id if success
 func (users Authorizator) Remove(requisites *server.Requisites) (id int, err error) {
-	usr, ok := users[requisites.Login]
+	user, ok := users[requisites.Login]
 	if !ok {
 		return 0, server.ErrLogin
 	}
-
-	if requisites.Password != usr.Password {
+	if requisites.Password != user.Password {
 		return 0, server.ErrPassword
 	}
 
 	delete(users, requisites.Login)
 
 	log.Printf("client removed: %s", requisites.Login)
-	return usr.ID, nil
+	return user.ID, nil
+}
+
+// ChangeRequisites changes requisites of user from requisitesOld to requisitesNew
+func (users Authorizator) ChangeRequisites(requisitesOld, requisitesNew *server.Requisites) (id int, err error) {
+	user, ok := users[requisitesOld.Login]
+	if !ok {
+		return 0, server.ErrLogin
+	}
+	if requisitesOld.Password != user.Password {
+		return 0, server.ErrPassword
+	}
+
+	if _, ok := users[requisitesNew.Login]; ok {
+		return 0, server.ErrLoginOccupied
+	}
+
+	users[requisitesNew.Login] = users[requisitesOld.Login]
+	delete(users, requisitesOld.Login)
+	users[requisitesNew.Login].Password = requisitesNew.Password
+	log.Printf("requisites changed from: %v to %v", requisitesOld, requisitesNew)
+	return user.ID, nil
 }
 
 // Len returns number of users

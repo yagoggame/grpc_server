@@ -96,6 +96,62 @@ var testsRegister = []struct {
 		want: iderr{id: 4, err: nil}},
 }
 
+var testsChangeRequisites = []struct {
+	caseName      string
+	requisitesOld server.Requisites
+	requisitesNew server.Requisites
+	want          iderr
+}{
+	{
+		caseName: "from unregistred login",
+		requisitesOld: server.Requisites{
+			Login:    "Piter",
+			Password: "aaa",
+		},
+		requisitesNew: server.Requisites{
+			Login:    "Teodor",
+			Password: "ttt",
+		},
+		want: iderr{id: 0, err: server.ErrLogin},
+	},
+	{
+		caseName: "from registred login wrong password",
+		requisitesOld: server.Requisites{
+			Login:    "Joe",
+			Password: "ababab",
+		},
+		requisitesNew: server.Requisites{
+			Login:    "Teodor",
+			Password: "ttt",
+		},
+		want: iderr{id: 0, err: server.ErrPassword},
+	},
+	{
+		caseName: "to registred",
+		requisitesOld: server.Requisites{
+			Login:    "Joe",
+			Password: "aaa",
+		},
+		requisitesNew: server.Requisites{
+			Login:    "Nick",
+			Password: "bbb",
+		},
+		want: iderr{id: 0, err: server.ErrLoginOccupied},
+	},
+	{
+		caseName: "registred to unregistred",
+		requisitesOld: server.Requisites{
+			Login:    "Joe",
+			Password: "aaa",
+		},
+		requisitesNew: server.Requisites{
+			Login:    "Teodor",
+			Password: "ttt",
+		},
+		want: iderr{id: 2, err: nil},
+	},
+}
+
 func TestAuthorize(t *testing.T) {
 	log.SetOutput(ioutil.Discard)
 	authorizator := New()
@@ -138,6 +194,32 @@ func TestRemove(t *testing.T) {
 				t.Errorf("Unexpected count of user delta:\nwant: -1\ngot: %d.", authorizator.Len()-usersLen)
 			}
 
+		})
+	}
+}
+
+func TestChangeRequisites(t *testing.T) {
+	log.SetOutput(ioutil.Discard)
+	authorizator := New()
+	for _, test := range testsChangeRequisites {
+		t.Run(test.caseName, func(t *testing.T) {
+			id, err := authorizator.ChangeRequisites(&test.requisitesOld, &test.requisitesNew)
+
+			testIDErr(t, test.want, iderr{id: id, err: err})
+
+			user, ok := authorizator[test.requisitesNew.Login]
+
+			if err == nil {
+				if !ok {
+					t.Fatalf("Unexpected behavior of authorizator:\nwant: login changed\n:got: user with new login not found.")
+				}
+				if user.Password != test.requisitesNew.Password {
+					t.Fatalf("Unexpected user's password:\nwant: %q\n:got: %q.", test.requisitesNew.Password, user.Password)
+				}
+				if _, ok := authorizator[test.requisitesOld.Login]; ok {
+					t.Fatalf("Unexpected behavior of authorizator:\nwant: user with old login not found\n:got: user with old login found.")
+				}
+			}
 		})
 	}
 }
