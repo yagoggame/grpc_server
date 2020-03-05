@@ -52,12 +52,11 @@ func (mr *MockAuthorizatorMockRecorder) Authorize(arg0 interface{}) *gomock.Call
 }
 
 // ChangeRequisites mocks base method
-func (m *MockAuthorizator) ChangeRequisites(arg0, arg1 *server.Requisites) (int, error) {
+func (m *MockAuthorizator) ChangeRequisites(arg0, arg1 *server.Requisites) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ChangeRequisites", arg0, arg1)
-	ret0, _ := ret[0].(int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // ChangeRequisites indicates an expected call of ChangeRequisites
@@ -67,12 +66,11 @@ func (mr *MockAuthorizatorMockRecorder) ChangeRequisites(arg0, arg1 interface{})
 }
 
 // Register mocks base method
-func (m *MockAuthorizator) Register(arg0 *server.Requisites) (int, error) {
+func (m *MockAuthorizator) Register(arg0 *server.Requisites) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Register", arg0)
-	ret0, _ := ret[0].(int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // Register indicates an expected call of Register
@@ -82,12 +80,11 @@ func (mr *MockAuthorizatorMockRecorder) Register(arg0 interface{}) *gomock.Call 
 }
 
 // Remove mocks base method
-func (m *MockAuthorizator) Remove(arg0 *server.Requisites) (int, error) {
+func (m *MockAuthorizator) Remove(arg0 *server.Requisites) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Remove", arg0)
-	ret0, _ := ret[0].(int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // Remove indicates an expected call of Remove
