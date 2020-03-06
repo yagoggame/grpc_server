@@ -97,7 +97,7 @@ func (s *Server) RegisterUser(ctx context.Context, in *api.EmptyMessage) (*api.E
 	}
 	login := strings.Join(md["login"], "")
 
-	log.Printf("user with login: %s registred", login)
+	log.Printf("user with login %q registred", login)
 	return &api.EmptyMessage{}, nil
 }
 
@@ -112,12 +112,12 @@ func (s *Server) RemoveUser(ctx context.Context, in *api.EmptyMessage) (*api.Emp
 	err = s.authorizator.Remove(requisites)
 
 	if err != nil {
-		err := extGrpcError(ErrRemovingUser, fmt.Sprintf("user with login: %s, id: %d", requisites.Login, id))
+		err := extGrpcError(ErrRemovingUser, fmt.Sprintf("user with login %q, id %d: %v", requisites.Login, id, err))
 		log.Printf("RegisterUser error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
 
-	log.Printf("user with login: %s, id: %d removed", requisites.Login, id)
+	log.Printf("user with login %q, id %d removed", requisites.Login, id)
 
 	return &api.EmptyMessage{}, nil
 }
@@ -126,7 +126,7 @@ func (s *Server) RemoveUser(ctx context.Context, in *api.EmptyMessage) (*api.Emp
 func (s *Server) ChangeUserRequisits(ctx context.Context, requisits *api.RequisitsMessage) (*api.EmptyMessage, error) {
 	requisitesOld, id, err := requisitesFromContext(ctx)
 	if err != nil {
-		log.Printf("RegisterUser error: %s", err)
+		log.Printf("ChangeUserRequisits error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
 
@@ -138,13 +138,13 @@ func (s *Server) ChangeUserRequisits(ctx context.Context, requisits *api.Requisi
 	err = s.authorizator.ChangeRequisites(requisitesOld, requisitesNew)
 
 	if err != nil {
-		err := extGrpcError(ErrChangeUser, fmt.Sprintf("user with login: %s, id: %d (new login: %s)",
-			requisitesOld.Login, id, requisitesNew.Login))
-		log.Printf("RegisterUser error: %s", err)
+		err := extGrpcError(ErrChangeUser, fmt.Sprintf("user with login %q, id %d (new login %q): %v",
+			requisitesOld.Login, id, requisitesNew.Login, err))
+		log.Printf("ChangeUserRequisits error: %s", err)
 		return &api.EmptyMessage{}, err
 	}
 
-	log.Printf("user with login: %s, id: %d changed his requisites (new login: %s)",
+	log.Printf("user with login %q, id %d changed his requisites (new login %q)",
 		requisitesOld.Login, id, requisitesNew.Login)
 
 	return &api.EmptyMessage{}, nil

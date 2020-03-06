@@ -98,12 +98,14 @@ func (users Authorizator) ChangeRequisites(requisitesOld, requisitesNew *server.
 		return server.ErrPassword
 	}
 
-	if _, ok := users[requisitesNew.Login]; ok {
-		return server.ErrLoginOccupied
-	}
+	if requisitesNew.Login != requisitesOld.Login {
+		if _, ok := users[requisitesNew.Login]; ok {
+			return server.ErrLoginOccupied
+		}
 
-	users[requisitesNew.Login] = users[requisitesOld.Login]
-	delete(users, requisitesOld.Login)
+		users[requisitesNew.Login] = users[requisitesOld.Login]
+		delete(users, requisitesOld.Login)
+	}
 	users[requisitesNew.Login].Password = requisitesNew.Password
 	log.Printf("requisites changed from: %v to %v", requisitesOld, requisitesNew)
 	return nil

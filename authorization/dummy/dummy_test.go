@@ -189,6 +189,18 @@ var testsChangeRequisites = []struct {
 		},
 		want: nil,
 	},
+	{
+		caseName: "only change password",
+		requisitesOld: server.Requisites{
+			Login:    "Nick",
+			Password: "bbb",
+		},
+		requisitesNew: server.Requisites{
+			Login:    "Nick",
+			Password: "ccc",
+		},
+		want: nil,
+	},
 }
 
 func TestAuthorize(t *testing.T) {
@@ -259,7 +271,7 @@ func TestChangeRequisites(t *testing.T) {
 				if user.Password != test.requisitesNew.Password {
 					t.Fatalf("Unexpected user's password:\nwant: %q\n:got: %q.", test.requisitesNew.Password, user.Password)
 				}
-				if _, ok := authorizator[test.requisitesOld.Login]; ok {
+				if _, ok := authorizator[test.requisitesOld.Login]; ok && test.requisitesOld.Login != test.requisitesNew.Login {
 					t.Fatalf("Unexpected behavior of authorizator:\nwant: user with old login not found\n:got: user with old login found.")
 				}
 			}
