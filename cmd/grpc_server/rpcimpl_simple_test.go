@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with yagogame.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package server
 
 import (
 	"context"
@@ -26,7 +26,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/yagoggame/api"
 	"github.com/yagoggame/gomaster/game"
-	"github.com/yagoggame/grpc_server/mocks"
+	"github.com/yagoggame/grpc_server/interfaces/mocks"
 )
 
 type commonTestCase struct {

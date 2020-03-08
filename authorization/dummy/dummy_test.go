@@ -21,7 +21,7 @@ import (
 	"log"
 	"testing"
 
-	server "github.com/yagoggame/grpc_server"
+	"github.com/yagoggame/grpc_server/interfaces"
 )
 
 type iderr struct {
@@ -31,28 +31,28 @@ type iderr struct {
 
 var testsAuthorize = []struct {
 	caseName   string
-	requisites server.Requisites
+	requisites interfaces.Requisites
 	want       iderr
 }{
 	{
 		caseName: "unregistred login",
-		requisites: server.Requisites{
+		requisites: interfaces.Requisites{
 			Login:    "Piter",
 			Password: "aaa",
 		},
-		want: iderr{id: 0, err: server.ErrLogin},
+		want: iderr{id: 0, err: interfaces.ErrLogin},
 	},
 	{
 		caseName: "registred login wrong password",
-		requisites: server.Requisites{
+		requisites: interfaces.Requisites{
 			Login:    "Joe",
 			Password: "ababab",
 		},
-		want: iderr{id: 0, err: server.ErrPassword},
+		want: iderr{id: 0, err: interfaces.ErrPassword},
 	},
 	{
 		caseName: "registred login",
-		requisites: server.Requisites{
+		requisites: interfaces.Requisites{
 			Login:    "Joe",
 			Password: "aaa",
 		},
@@ -60,7 +60,7 @@ var testsAuthorize = []struct {
 	},
 	{
 		caseName: "registred login",
-		requisites: server.Requisites{
+		requisites: interfaces.Requisites{
 			Login:    "Nick",
 			Password: "bbb",
 		},
@@ -70,28 +70,28 @@ var testsAuthorize = []struct {
 
 var testsRemove = []struct {
 	caseName   string
-	requisites server.Requisites
+	requisites interfaces.Requisites
 	want       error
 }{
 	{
 		caseName: "unregistred login",
-		requisites: server.Requisites{
+		requisites: interfaces.Requisites{
 			Login:    "Piter",
 			Password: "aaa",
 		},
-		want: server.ErrLogin,
+		want: interfaces.ErrLogin,
 	},
 	{
 		caseName: "registred login wrong password",
-		requisites: server.Requisites{
+		requisites: interfaces.Requisites{
 			Login:    "Joe",
 			Password: "ababab",
 		},
-		want: server.ErrPassword,
+		want: interfaces.ErrPassword,
 	},
 	{
 		caseName: "registred login",
-		requisites: server.Requisites{
+		requisites: interfaces.Requisites{
 			Login:    "Joe",
 			Password: "aaa",
 		},
@@ -99,7 +99,7 @@ var testsRemove = []struct {
 	},
 	{
 		caseName: "registred login",
-		requisites: server.Requisites{
+		requisites: interfaces.Requisites{
 			Login:    "Nick",
 			Password: "bbb",
 		},
@@ -109,26 +109,26 @@ var testsRemove = []struct {
 
 var testsRegister = []struct {
 	caseName   string
-	requisites server.Requisites
+	requisites interfaces.Requisites
 	want       error
 }{
 	{
 		caseName: "registred login",
-		requisites: server.Requisites{
+		requisites: interfaces.Requisites{
 			Login:    "Joe",
 			Password: "aaa",
 		},
-		want: server.ErrLoginOccupied},
+		want: interfaces.ErrLoginOccupied},
 	{
 		caseName: "unregistred login first",
-		requisites: server.Requisites{
+		requisites: interfaces.Requisites{
 			Login:    "Piter",
 			Password: "aaa",
 		},
 		want: nil},
 	{
 		caseName: "unregistred login second",
-		requisites: server.Requisites{
+		requisites: interfaces.Requisites{
 			Login:    "Mike",
 			Password: "mmm",
 		},
@@ -137,53 +137,53 @@ var testsRegister = []struct {
 
 var testsChangeRequisites = []struct {
 	caseName      string
-	requisitesOld server.Requisites
-	requisitesNew server.Requisites
+	requisitesOld interfaces.Requisites
+	requisitesNew interfaces.Requisites
 	want          error
 }{
 	{
 		caseName: "from unregistred login",
-		requisitesOld: server.Requisites{
+		requisitesOld: interfaces.Requisites{
 			Login:    "Piter",
 			Password: "aaa",
 		},
-		requisitesNew: server.Requisites{
+		requisitesNew: interfaces.Requisites{
 			Login:    "Teodor",
 			Password: "ttt",
 		},
-		want: server.ErrLogin,
+		want: interfaces.ErrLogin,
 	},
 	{
 		caseName: "from registred login wrong password",
-		requisitesOld: server.Requisites{
+		requisitesOld: interfaces.Requisites{
 			Login:    "Joe",
 			Password: "ababab",
 		},
-		requisitesNew: server.Requisites{
+		requisitesNew: interfaces.Requisites{
 			Login:    "Teodor",
 			Password: "ttt",
 		},
-		want: server.ErrPassword,
+		want: interfaces.ErrPassword,
 	},
 	{
 		caseName: "to registred",
-		requisitesOld: server.Requisites{
+		requisitesOld: interfaces.Requisites{
 			Login:    "Joe",
 			Password: "aaa",
 		},
-		requisitesNew: server.Requisites{
+		requisitesNew: interfaces.Requisites{
 			Login:    "Nick",
 			Password: "bbb",
 		},
-		want: server.ErrLoginOccupied,
+		want: interfaces.ErrLoginOccupied,
 	},
 	{
 		caseName: "registred to unregistred",
-		requisitesOld: server.Requisites{
+		requisitesOld: interfaces.Requisites{
 			Login:    "Joe",
 			Password: "aaa",
 		},
-		requisitesNew: server.Requisites{
+		requisitesNew: interfaces.Requisites{
 			Login:    "Teodor",
 			Password: "ttt",
 		},
@@ -191,11 +191,11 @@ var testsChangeRequisites = []struct {
 	},
 	{
 		caseName: "only change password",
-		requisitesOld: server.Requisites{
+		requisitesOld: interfaces.Requisites{
 			Login:    "Nick",
 			Password: "bbb",
 		},
-		requisitesNew: server.Requisites{
+		requisitesNew: interfaces.Requisites{
 			Login:    "Nick",
 			Password: "ccc",
 		},
@@ -246,8 +246,8 @@ func TestRemove(t *testing.T) {
 			}
 
 			_, authErr := authorizator.Authorize(&test.requisites)
-			if err == nil && authErr != server.ErrLogin {
-				t.Errorf("Unexpected Authorize err:\nwant: %v\ngot: %v.", server.ErrLogin, authErr)
+			if err == nil && authErr != interfaces.ErrLogin {
+				t.Errorf("Unexpected Authorize err:\nwant: %v\ngot: %v.", interfaces.ErrLogin, authErr)
 			}
 
 		})

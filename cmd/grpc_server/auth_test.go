@@ -14,15 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with yagogame.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package server
 
 import (
 	"context"
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	server "github.com/yagoggame/grpc_server"
-	"github.com/yagoggame/grpc_server/mocks"
+	"github.com/yagoggame/grpc_server/interfaces"
+	"github.com/yagoggame/grpc_server/interfaces/mocks"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -34,7 +34,7 @@ var (
 	correctID           = 1
 )
 
-var usualRequisites = server.Requisites{
+var usualRequisites = interfaces.Requisites{
 	Login:    someLogin,
 	Password: somePassword,
 }
@@ -51,7 +51,7 @@ var authorizationTests = []struct {
 	timesAuth    int
 	timesRel     int
 	ctx          context.Context
-	fncGenServer func(server.Authorizator, server.Pooler, server.GameGeter) interface{}
+	fncGenServer func(interfaces.Authorizator, interfaces.Pooler, interfaces.GameGeter) interface{}
 }{
 	{
 		caseName: "authorized user", timesAuth: 1, timesRel: 1,
@@ -68,14 +68,14 @@ var authorizationTests = []struct {
 	{
 		caseName: "wrong login", timesAuth: 1, timesRel: 1,
 		fncGenServer: genSrv,
-		ret:          &iderr{id: 0, err: server.ErrLogin},
-		want:         &iderr{id: 0, err: status.Error(codes.Unauthenticated, server.ErrLogin.Error())},
+		ret:          &iderr{id: 0, err: interfaces.ErrLogin},
+		want:         &iderr{id: 0, err: status.Error(codes.Unauthenticated, interfaces.ErrLogin.Error())},
 		ctx:          userContext(someLogin, somePassword)},
 	{
 		caseName: "wrong password", timesAuth: 1, timesRel: 1,
 		fncGenServer: genSrv,
-		ret:          &iderr{id: 0, err: server.ErrPassword},
-		want:         &iderr{id: 0, err: status.Error(codes.Unauthenticated, server.ErrPassword.Error())},
+		ret:          &iderr{id: 0, err: interfaces.ErrPassword},
+		want:         &iderr{id: 0, err: status.Error(codes.Unauthenticated, interfaces.ErrPassword.Error())},
 		ctx:          userContext(someLogin, somePassword)},
 	{
 		caseName: "fake server", timesAuth: 0, timesRel: 0,
@@ -108,7 +108,7 @@ func TestUnaryInterceptor(t *testing.T) {
 					Times(test.timesRel),
 			)
 
-			val, err := unaryInterceptor(test.ctx, nil,
+			val, err := UnaryInterceptor(test.ctx, nil,
 				&grpc.UnaryServerInfo{Server: s}, handler)
 			ival := transform(t, val, err)
 			testIDErr(t, &iderr{id: ival, err: err}, test.want)
@@ -128,12 +128,12 @@ func TestUnarySkipAuth(t *testing.T) {
 
 			authorizator := mocks.NewMockAuthorizator(controller)
 			pooler := mocks.NewMockPooler(controller)
-			s := newServer(authorizator, pooler, nil)
+			s := NewServer(authorizator, pooler, nil)
 			defer s.Release()
 
 			want := gomockDependsOnSkiper(funcName == skipper, authorizator, pooler)
 
-			_, err := unaryInterceptor(userContext(someLogin, somePassword), nil,
+			_, err := UnaryInterceptor(userContext(someLogin, somePassword), nil,
 				&grpc.UnaryServerInfo{Server: s, FullMethod: "SomePrefix" + funcName}, handler)
 			testErr(t, err, want)
 		})
@@ -156,11 +156,11 @@ func gomockDependsOnSkiper(isSkiper bool,
 	gomock.InOrder(
 		authorizator.EXPECT().
 			Authorize(&usualRequisites).
-			Return(0, server.ErrLogin).
+			Return(0, interfaces.ErrLogin).
 			Times(1),
 		pooler.EXPECT().
 			Release().
 			Times(1))
 
-	return status.Error(codes.Unauthenticated, server.ErrLogin.Error())
+	return status.Error(codes.Unauthenticated, interfaces.ErrLogin.Error())
 }

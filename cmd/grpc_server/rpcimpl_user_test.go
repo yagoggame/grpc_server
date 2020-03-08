@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with yagogame.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package server
 
 import (
 	"context"
@@ -26,8 +26,8 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/yagoggame/api"
-	server "github.com/yagoggame/grpc_server"
-	"github.com/yagoggame/grpc_server/mocks"
+	"github.com/yagoggame/grpc_server/interfaces"
+	"github.com/yagoggame/grpc_server/interfaces/mocks"
 )
 
 var RegisterUserTests = []commonTestCase{
@@ -77,7 +77,7 @@ var removingUserTests = []commonTestCase{
 	{
 		caseName: "removing error",
 		times:    []int{1, 1},
-		ret:      []error{server.ErrPassword, nil},
+		ret:      []error{interfaces.ErrPassword, nil},
 		want:     ErrRemovingUser,
 		ctx: context.WithValue(userContext(someLogin, somePassword),
 			clientIDKey, correctID)},
@@ -94,7 +94,7 @@ var changingUserTests = []commonTestCase{
 	{
 		caseName: "changing error",
 		times:    []int{1, 1},
-		ret:      []error{server.ErrLoginOccupied, nil},
+		ret:      []error{interfaces.ErrLoginOccupied, nil},
 		want:     ErrChangeUser,
 		ctx: context.WithValue(userContext(someLogin, somePassword),
 			clientIDKey, correctID)},
@@ -117,7 +117,7 @@ func TestRegisterUser(t *testing.T) {
 
 			authorizator := mocks.NewMockAuthorizator(controller)
 			pooler := mocks.NewMockPooler(controller)
-			s := newServer(authorizator, pooler, nil)
+			s := NewServer(authorizator, pooler, nil)
 			defer s.Release()
 
 			pooler.EXPECT().
@@ -141,7 +141,7 @@ func TestRemoveUser(t *testing.T) {
 
 			authorizator := mocks.NewMockAuthorizator(controller)
 			pooler := mocks.NewMockPooler(controller)
-			s := newServer(authorizator, pooler, nil)
+			s := NewServer(authorizator, pooler, nil)
 			defer s.Release()
 
 			gomock.InOrder(
@@ -170,11 +170,11 @@ func TestChangeUserRequisites(t *testing.T) {
 
 			authorizator := mocks.NewMockAuthorizator(controller)
 			pooler := mocks.NewMockPooler(controller)
-			s := newServer(authorizator, pooler, nil)
+			s := NewServer(authorizator, pooler, nil)
 			defer s.Release()
 
 			requisitesOld := usualRequisites
-			requisitesNew := server.Requisites{
+			requisitesNew := interfaces.Requisites{
 				Login:    someLogin + "New",
 				Password: somePassword + "New",
 			}
@@ -196,14 +196,14 @@ func TestChangeUserRequisites(t *testing.T) {
 	}
 }
 
-type byRequisites struct{ r *server.Requisites }
+type byRequisites struct{ r *interfaces.Requisites }
 
-func matchByRequisites(r *server.Requisites) gomock.Matcher {
+func matchByRequisites(r *interfaces.Requisites) gomock.Matcher {
 	return &byRequisites{r}
 }
 
 func (o *byRequisites) Matches(x interface{}) bool {
-	r2, ok := x.(*server.Requisites)
+	r2, ok := x.(*interfaces.Requisites)
 	if !ok {
 		return false
 	}

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with yagogame.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package server
 
 import (
 	"context"
@@ -25,7 +25,7 @@ import (
 
 	"github.com/yagoggame/api"
 	"github.com/yagoggame/gomaster/game"
-	server "github.com/yagoggame/grpc_server"
+	"github.com/yagoggame/grpc_server/interfaces"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -74,14 +74,14 @@ func extGrpcError(err error, ext string) error {
 
 // Server represents the gRPC server.
 type Server struct {
-	pool         server.Pooler
-	authorizator server.Authorizator
-	gameGeter    server.GameGeter
+	pool         interfaces.Pooler
+	authorizator interfaces.Authorizator
+	gameGeter    interfaces.GameGeter
 }
 
-// newServer Creates a new Server instance.
+// NewServer Creates a new Server instance.
 // After using, it mast be destroyed by Release call.
-func newServer(authorizator server.Authorizator, pool server.Pooler, gameGeter server.GameGeter) *Server {
+func NewServer(authorizator interfaces.Authorizator, pool interfaces.Pooler, gameGeter interfaces.GameGeter) *Server {
 	return &Server{
 		pool:         pool,
 		authorizator: authorizator,
@@ -130,7 +130,7 @@ func (s *Server) ChangeUserRequisits(ctx context.Context, requisits *api.Requisi
 		return &api.EmptyMessage{}, err
 	}
 
-	requisitesNew := &server.Requisites{
+	requisitesNew := &interfaces.Requisites{
 		Login:    requisits.Login,
 		Password: requisits.Password,
 	}
@@ -328,12 +328,12 @@ func userFromContext(ctx context.Context) (gamer *game.Gamer, err error) {
 	return &game.Gamer{Name: login, ID: id}, nil
 }
 
-func requisitesFromContext(ctx context.Context) (requisites *server.Requisites, id int, err error) {
+func requisitesFromContext(ctx context.Context) (requisites *interfaces.Requisites, id int, err error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, 0, ErrMissCred
 	}
-	requisites = &server.Requisites{
+	requisites = &interfaces.Requisites{
 		Login:    strings.Join(md["login"], ""),
 		Password: strings.Join(md["password"], ""),
 	}
@@ -373,7 +373,7 @@ func (s *Server) waitGame(ctx context.Context, id int) error {
 	return nil
 }
 
-func makeTurn(gm server.GameManager, id int, move *game.TurnData) error {
+func makeTurn(gm interfaces.GameManager, id int, move *game.TurnData) error {
 	if err := gm.MakeTurn(id, move); err != nil {
 		if errors.Is(err, game.ErrWrongTurn) {
 			err = extGrpcError(ErrWrongTurn, fmt.Sprintf(" with id %d: %v", id, err))

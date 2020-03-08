@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with yagogame.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package server
 
 import (
 	"context"
@@ -26,8 +26,8 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/yagoggame/gomaster/game"
-	server "github.com/yagoggame/grpc_server"
-	"github.com/yagoggame/grpc_server/mocks"
+	"github.com/yagoggame/grpc_server/interfaces"
+	"github.com/yagoggame/grpc_server/interfaces/mocks"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
@@ -81,12 +81,12 @@ func userContext(login, password string) context.Context {
 	return ctx
 }
 
-func genSrv(a server.Authorizator, p server.Pooler, g server.GameGeter) interface{} {
-	return newServer(a, p, g)
+func genSrv(a interfaces.Authorizator, p interfaces.Pooler, g interfaces.GameGeter) interface{} {
+	return NewServer(a, p, g)
 
 }
 
-func genFakeSrv(a server.Authorizator, p server.Pooler, g server.GameGeter) interface{} {
+func genFakeSrv(a interfaces.Authorizator, p interfaces.Pooler, g interfaces.GameGeter) interface{} {
 	return nil
 
 }
@@ -146,7 +146,7 @@ func launchVariants(t *testing.T, arg launchVariantsArgs) {
 			pooler := mocks.NewMockPooler(controller)
 			gameGeter := mocks.NewMockGameGeter(controller)
 			_ = mocks.NewMockGameManager(controller)
-			s := newServer(authorizator, pooler, gameGeter)
+			s := NewServer(authorizator, pooler, gameGeter)
 			defer s.Release()
 
 			args := singleTestArgs{

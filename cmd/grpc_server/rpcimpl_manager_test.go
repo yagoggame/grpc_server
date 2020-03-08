@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with yagogame.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package server
 
 import (
 	"context"
@@ -26,8 +26,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/yagoggame/api"
 	"github.com/yagoggame/gomaster/game"
-	server "github.com/yagoggame/grpc_server"
-	"github.com/yagoggame/grpc_server/mocks"
+	"github.com/yagoggame/grpc_server/interfaces"
+	"github.com/yagoggame/grpc_server/interfaces/mocks"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -185,7 +185,7 @@ func TestJoinTheGame(t *testing.T) {
 			pooler := mocks.NewMockPooler(controller)
 			gameGeter := mocks.NewMockGameGeter(controller)
 			gameManager := mocks.NewMockGameManager(controller)
-			s := newServer(authorizator, pooler, gameGeter)
+			s := NewServer(authorizator, pooler, gameGeter)
 			defer s.Release()
 
 			args := singleTestArgs{
@@ -215,7 +215,7 @@ func TestWaitTheTurn(t *testing.T) {
 			pooler := mocks.NewMockPooler(controller)
 			gameGeter := mocks.NewMockGameGeter(controller)
 			gameManager := mocks.NewMockGameManager(controller)
-			s := newServer(authorizator, pooler, gameGeter)
+			s := NewServer(authorizator, pooler, gameGeter)
 			defer s.Release()
 
 			args := singleTestArgs{
@@ -245,7 +245,7 @@ func TestMakeTurn(t *testing.T) {
 			pooler := mocks.NewMockPooler(controller)
 			gameGeter := mocks.NewMockGameGeter(controller)
 			gameManager := mocks.NewMockGameManager(controller)
-			s := newServer(authorizator, pooler, gameGeter)
+			s := NewServer(authorizator, pooler, gameGeter)
 			defer s.Release()
 
 			args := singleTestArgs{
@@ -264,7 +264,7 @@ func TestMakeTurn(t *testing.T) {
 }
 
 func performTestJoinTheGame(t *testing.T, args singleTestArgs) {
-	var gm server.GameManager
+	var gm interfaces.GameManager
 	if !args.nilManager {
 		gm = args.gameManager
 	}
@@ -294,7 +294,7 @@ func performTestJoinTheGame(t *testing.T, args singleTestArgs) {
 }
 
 func performTestWaitTheTurn(t *testing.T, args singleTestArgs) {
-	var gm server.GameManager
+	var gm interfaces.GameManager
 	if !args.nilManager {
 		gm = args.gameManager
 	}
@@ -316,7 +316,7 @@ func performTestWaitTheTurn(t *testing.T, args singleTestArgs) {
 }
 
 func performTestMakeTurn(t *testing.T, args singleTestArgs) {
-	var gm server.GameManager
+	var gm interfaces.GameManager
 	if !args.nilManager {
 		gm = args.gameManager
 	}

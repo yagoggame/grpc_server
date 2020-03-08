@@ -14,10 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with yagogame.  If not, see <https://www.gnu.org/licenses/>.
 
-//go:generate mockgen -destination=./mocks/mock_grpc_server.go -package=mocks github.com/yagoggame/grpc_server Authorizator,Pooler,GameManager,GameGeter
-//go:generate goimports -w ./mocks/mock_grpc_server.go
+//go:generate mockgen -destination=./mocks/mock_grpc_interfaces.go -package=mocks github.com/yagoggame/grpc_server/interfaces Authorizator,Pooler,GameManager,GameGeter
+//go:generate goimports -w ./mocks/mock_grpc_interfaces.go
 
-package server
+package interfaces
 
 import (
 	"context"

@@ -14,6 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with yagogame.  If not, see <https://www.gnu.org/licenses/>.
 
-// Package server provides description of interfaces and constants
-// used by submodules
-package server
+// Package interfaces provides description of interfaces and constants
+// used by submodules and runs cobra mommands
+package interfaces

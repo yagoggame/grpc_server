@@ -14,14 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with yagogame.  If not, see <https://www.gnu.org/licenses/>.
 
-// Package dummy provides dummy realization of server.Authorizator interface
+// Package dummy provides dummy realization of interfaces.Authorizator interface
 package dummy
 
 import (
 	"log"
 	"sort"
 
-	server "github.com/yagoggame/grpc_server"
+	"github.com/yagoggame/grpc_server/interfaces"
 )
 
 // User contains user attributes
@@ -30,7 +30,7 @@ type User struct {
 	ID       int
 }
 
-// Authorizator implements server.Authorizator interface
+// Authorizator implements interfaces.Authorizator interface
 type Authorizator map[string]*User
 
 // New constructs new Authorizator
@@ -42,13 +42,13 @@ func New() Authorizator {
 }
 
 // Authorize attempts to authorize a user and returns the id if success
-func (users Authorizator) Authorize(requisites *server.Requisites) (id int, err error) {
+func (users Authorizator) Authorize(requisites *interfaces.Requisites) (id int, err error) {
 	user, ok := users[requisites.Login]
 	if !ok {
-		return 0, server.ErrLogin
+		return 0, interfaces.ErrLogin
 	}
 	if requisites.Password != user.Password {
-		return 0, server.ErrPassword
+		return 0, interfaces.ErrPassword
 	}
 
 	log.Printf("authenticated client: %s, %d", requisites.Login, user.ID)
@@ -56,10 +56,10 @@ func (users Authorizator) Authorize(requisites *server.Requisites) (id int, err 
 }
 
 // Register attempts to register a new user and returns the id if success
-func (users Authorizator) Register(requisites *server.Requisites) error {
+func (users Authorizator) Register(requisites *interfaces.Requisites) error {
 	user, ok := users[requisites.Login]
 	if ok {
-		return server.ErrLoginOccupied
+		return interfaces.ErrLoginOccupied
 	}
 
 	user = &User{
@@ -73,13 +73,13 @@ func (users Authorizator) Register(requisites *server.Requisites) error {
 }
 
 // Remove attempts to remove a user and returns the id if success
-func (users Authorizator) Remove(requisites *server.Requisites) error {
+func (users Authorizator) Remove(requisites *interfaces.Requisites) error {
 	user, ok := users[requisites.Login]
 	if !ok {
-		return server.ErrLogin
+		return interfaces.ErrLogin
 	}
 	if requisites.Password != user.Password {
-		return server.ErrPassword
+		return interfaces.ErrPassword
 	}
 
 	delete(users, requisites.Login)
@@ -89,18 +89,18 @@ func (users Authorizator) Remove(requisites *server.Requisites) error {
 }
 
 // ChangeRequisites changes requisites of user from requisitesOld to requisitesNew
-func (users Authorizator) ChangeRequisites(requisitesOld, requisitesNew *server.Requisites) error {
+func (users Authorizator) ChangeRequisites(requisitesOld, requisitesNew *interfaces.Requisites) error {
 	user, ok := users[requisitesOld.Login]
 	if !ok {
-		return server.ErrLogin
+		return interfaces.ErrLogin
 	}
 	if requisitesOld.Password != user.Password {
-		return server.ErrPassword
+		return interfaces.ErrPassword
 	}
 
 	if requisitesNew.Login != requisitesOld.Login {
 		if _, ok := users[requisitesNew.Login]; ok {
-			return server.ErrLoginOccupied
+			return interfaces.ErrLoginOccupied
 		}
 
 		users[requisitesNew.Login] = users[requisitesOld.Login]
