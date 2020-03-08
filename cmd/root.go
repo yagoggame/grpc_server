@@ -106,14 +106,28 @@ func iniFromViper(initData *server.IniDataContainer, command *cobra.Command) {
 	initData.KeyFile = viper.GetString("key")
 }
 
-func runService(cmd *cobra.Command, args []string) {
-	initData := new(server.IniDataContainer)
-	iniFromViper(initData, cmd)
+func createServer(initData *server.IniDataContainer) (net.Listener, *grpc.Server) {
+	creds, err := credentials.NewServerTLSFromFile(initData.CertFile, initData.KeyFile)
+	if err != nil {
+		log.Fatalf("could not load TLS keys: %s", err)
+	}
 
 	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", initData.IP, initData.Port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
+
+	opts := []grpc.ServerOption{grpc.Creds(creds),
+		grpc.UnaryInterceptor(server.UnaryInterceptor)}
+
+	return lis, grpc.NewServer(opts...)
+}
+
+func runService(cmd *cobra.Command, args []string) {
+	initData := new(server.IniDataContainer)
+	iniFromViper(initData, cmd)
+
+	lis, grpcServer := createServer(initData)
 
 	gamePool := gomaster.NewGamersPool()
 	// gameGeter is separated from the object for testing purposes
@@ -121,17 +135,7 @@ func runService(cmd *cobra.Command, args []string) {
 	s := server.NewServer(dummy.New(), gamePool, gameGeter)
 	defer s.Release()
 
-	creds, err := credentials.NewServerTLSFromFile(initData.CertFile, initData.KeyFile)
-	if err != nil {
-		log.Fatalf("could not load TLS keys: %s", err)
-	}
-
-	opts := []grpc.ServerOption{grpc.Creds(creds),
-		grpc.UnaryInterceptor(server.UnaryInterceptor)}
-
-	grpcServer := grpc.NewServer(opts...)
 	api.RegisterGoGameServer(grpcServer, s)
-
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %s", err)
 	}
