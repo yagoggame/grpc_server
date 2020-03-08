@@ -27,7 +27,7 @@ import (
 	"github.com/yagoggame/api"
 	"github.com/yagoggame/gomaster"
 	"github.com/yagoggame/grpc_server/authorization/dummy"
-	server "github.com/yagoggame/grpc_server/cmd/grpc_server"
+	"github.com/yagoggame/grpc_server/cmd/server"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
