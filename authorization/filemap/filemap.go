@@ -16,42 +16,53 @@
 
 package filemap
 
-import "errors"
+import (
+	"errors"
+	"io"
+	"path"
+
+	"github.com/yagoggame/grpc_server/authorization"
+	"github.com/yagoggame/grpc_server/authorization/filemap/json"
+)
 
 var (
 	// ErrNotImpl error occurs when file name extension not recognized
 	ErrNotImpl = errors.New("Not Implemented")
-	// ErrFileType error occurs when maper gets filename with wrong extension
-	ErrFileType = errors.New("wrong extension")
-	// ErrCreate error occurs when maper fails to create file storage
-	ErrCreate = errors.New("fail to create file")
-	// ErrRemove error occurs when maper fails to remove file storage
-	ErrRemove = errors.New("fail to remove file")
 )
-
-// User contains user attributes
-type User struct {
-	Password string
-	ID       int
-}
 
 // FileMaper wraps Load, Save methods
 type FileMaper interface {
-	Load() (map[string]*User, error)
-	Save(map[string]*User) error
+	Load(io.Reader) (map[string]*authorization.User, error)
+	Save(map[string]*authorization.User, io.Writer) error
+}
+
+func choseMaper(fileName string) (FileMaper, error) {
+	ext := path.Ext(fileName)
+	switch ext {
+	case ".json":
+		return json.New(), nil
+	}
+	return nil, ErrNotImpl
 }
 
 // Authorizator implements interfaces.Authorizator interface
 type Authorizator struct {
-	mapper FileMaper
-	users  map[string]*User
-}
-
-func createMapper(file string) {
-
+	fileName string
+	maper    FileMaper
+	users    map[string]*authorization.User
 }
 
 // New constructs new Authorizator
-func New(file string) (*Authorizator, error) {
-	return nil, ErrNotImpl
+func New(fileName string) (*Authorizator, error) {
+	maper, err := choseMaper(fileName)
+	if err != nil {
+		return nil, err
+	}
+
+	authorizator := &Authorizator{
+		fileName: fileName,
+		maper:    maper,
+		users:    nil,
+	}
+	return authorizator, nil
 }

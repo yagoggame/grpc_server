@@ -14,37 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with yagogame.  If not, see <https://www.gnu.org/licenses/>.
 
-package filemap
+package authorization
 
-import (
-	"errors"
-	"testing"
-)
-
-var newTests = []struct {
-	name     string
-	fileName string
-	wantErr  error
-}{
-	{
-		name:     "correct extension",
-		fileName: "tmp.json",
-		wantErr:  nil,
-	},
-	{
-		name:     "wrong extension",
-		fileName: "tmp.json.tar",
-		wantErr:  ErrNotImpl,
-	},
-}
-
-func TestNew(t *testing.T) {
-	for _, test := range newTests {
-		t.Run(test.name, func(t *testing.T) {
-			_, err := New(test.fileName)
-			if !errors.Is(err, test.wantErr) {
-				t.Errorf("Unexpected err:\nwant: %v,\ngot: %v.", test.wantErr, err)
-			}
-		})
-	}
+// User contains user attributes
+type User struct {
+	Password string
+	ID       int
 }

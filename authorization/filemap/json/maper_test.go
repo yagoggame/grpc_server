@@ -22,12 +22,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yagoggame/grpc_server/authorization/filemap"
+	"github.com/yagoggame/grpc_server/authorization"
 )
 
-var twoUsers = map[string]*filemap.User{
-	"Joe":  &filemap.User{Password: "aaa", ID: 2},
-	"Nick": &filemap.User{Password: "bbb", ID: 3},
+var twoUsers = map[string]*authorization.User{
+	"Joe":  &authorization.User{Password: "aaa", ID: 2},
+	"Nick": &authorization.User{Password: "bbb", ID: 3},
 }
 
 var twoJSON = `[
@@ -44,8 +44,8 @@ var twoJSON = `[
 ]
 `
 
-var oneUser = map[string]*filemap.User{
-	"Joe": &filemap.User{Password: "aaa", ID: 2},
+var oneUser = map[string]*authorization.User{
+	"Joe": &authorization.User{Password: "aaa", ID: 2},
 }
 
 var oneJSON = `[
@@ -57,7 +57,7 @@ var oneJSON = `[
 ]
 `
 
-var noUsers = map[string]*filemap.User{}
+var noUsers = map[string]*authorization.User{}
 
 var noJSON = `[]
 `
@@ -91,7 +91,7 @@ var errFmtJSON = `[
 
 var encodeTests = []struct {
 	name     string
-	users    map[string]*filemap.User
+	users    map[string]*authorization.User
 	wantJSON string
 	wantErr  error
 }{
@@ -118,7 +118,7 @@ var encodeTests = []struct {
 var decodeTests = []struct {
 	name      string
 	jsonValue string
-	wantUsers map[string]*filemap.User
+	wantUsers map[string]*authorization.User
 	wantErr   error
 }{
 	{

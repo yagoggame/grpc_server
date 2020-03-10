@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/yagoggame/grpc_server/authorization/filemap"
+	"github.com/yagoggame/grpc_server/authorization"
 )
 
 var (
@@ -51,7 +51,7 @@ func New() *Maper {
 }
 
 // Save stores users elements into writer in json format
-func (*Maper) Save(users map[string]*filemap.User, writer io.Writer) error {
+func (*Maper) Save(users map[string]*authorization.User, writer io.Writer) error {
 	items := users2Items(users)
 	encoder := json.NewEncoder(writer)
 	encoder.SetIndent("", "\t")
@@ -59,7 +59,7 @@ func (*Maper) Save(users map[string]*filemap.User, writer io.Writer) error {
 }
 
 // Load reades users elements from writer in json format
-func (*Maper) Load(reader io.Reader) (map[string]*filemap.User, error) {
+func (*Maper) Load(reader io.Reader) (map[string]*authorization.User, error) {
 	var items []dbItem
 	decoder := json.NewDecoder(reader)
 	err := decoder.Decode(&items)
@@ -70,7 +70,7 @@ func (*Maper) Load(reader io.Reader) (map[string]*filemap.User, error) {
 	return items2Users(items)
 }
 
-func users2Items(users map[string]*filemap.User) []dbItem {
+func users2Items(users map[string]*authorization.User) []dbItem {
 	items := make([]dbItem, len(users))
 	i := 0
 	for login, user := range users {
@@ -80,14 +80,14 @@ func users2Items(users map[string]*filemap.User) []dbItem {
 	return items
 }
 
-func items2Users(items []dbItem) (map[string]*filemap.User, error) {
-	users := make(map[string]*filemap.User, len(items))
+func items2Users(items []dbItem) (map[string]*authorization.User, error) {
+	users := make(map[string]*authorization.User, len(items))
 	for _, item := range items {
 		if (&item).isUserCorrupted() {
 			return nil, fmt.Errorf("%w, %v", ErrCOrruptedUser, item)
 		}
 
-		users[item.Login] = &filemap.User{Password: item.Password, ID: item.ID}
+		users[item.Login] = &authorization.User{Password: item.Password, ID: item.ID}
 	}
 	return users, nil
 }

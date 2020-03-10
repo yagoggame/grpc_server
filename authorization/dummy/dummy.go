@@ -21,23 +21,18 @@ import (
 	"log"
 	"sort"
 
+	"github.com/yagoggame/grpc_server/authorization"
 	"github.com/yagoggame/grpc_server/interfaces"
 )
 
-// User contains user attributes
-type User struct {
-	Password string
-	ID       int
-}
-
 // Authorizator implements interfaces.Authorizator interface
-type Authorizator map[string]*User
+type Authorizator map[string]*authorization.User
 
 // New constructs new Authorizator
 func New() Authorizator {
-	return map[string]*User{
-		"Joe":  &User{Password: "aaa", ID: 2},
-		"Nick": &User{Password: "bbb", ID: 3},
+	return map[string]*authorization.User{
+		"Joe":  &authorization.User{Password: "aaa", ID: 2},
+		"Nick": &authorization.User{Password: "bbb", ID: 3},
 	}
 }
 
@@ -62,7 +57,7 @@ func (users Authorizator) Register(requisites *interfaces.Requisites) error {
 		return interfaces.ErrLoginOccupied
 	}
 
-	user = &User{
+	user = &authorization.User{
 		Password: requisites.Password,
 		ID:       users.getFirstVacantID(),
 	}
