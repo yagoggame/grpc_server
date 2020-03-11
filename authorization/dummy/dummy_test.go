@@ -173,7 +173,7 @@ var testsChangeRequisites = []struct {
 		},
 		requisitesNew: interfaces.Requisites{
 			Login:    "Nick",
-			Password: "bbb",
+			Password: "fff",
 		},
 		want: interfaces.ErrLoginOccupied,
 	},
@@ -263,17 +263,13 @@ func TestChangeRequisites(t *testing.T) {
 
 			testErr(t, test.want, err)
 
-			user, ok := authorizator[test.requisitesNew.Login]
-			if err == nil {
-				if !ok {
-					t.Fatalf("Unexpected behavior of authorizator:\nwant: login changed\n:got: user with new login not found.")
-				}
-				if user.Password != test.requisitesNew.Password {
-					t.Fatalf("Unexpected user's password:\nwant: %q\n:got: %q.", test.requisitesNew.Password, user.Password)
-				}
-				if _, ok := authorizator[test.requisitesOld.Login]; ok && test.requisitesOld.Login != test.requisitesNew.Login {
-					t.Fatalf("Unexpected behavior of authorizator:\nwant: user with old login not found\n:got: user with old login found.")
-				}
+			_, authErr := authorizator.Authorize(&test.requisitesNew)
+			if err != nil && authErr == nil {
+				t.Errorf("Unexpected Authorize err:\nwant: err!=nil\ngot: %v.", authErr)
+			}
+
+			if err == nil && authErr != nil {
+				t.Errorf("Unexpected Authorize err:\nwant: %v\ngot: %v.", nil, authErr)
 			}
 		})
 	}
