@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with yagogame.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package server
 
 import (
 	"context"
@@ -26,8 +26,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/yagoggame/api"
 	"github.com/yagoggame/gomaster/game"
-	server "github.com/yagoggame/grpc_server"
-	"github.com/yagoggame/grpc_server/mocks"
+	"github.com/yagoggame/grpc_server/interfaces"
+	"github.com/yagoggame/grpc_server/interfaces/mocks"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -38,41 +38,41 @@ var JoinTheGameTests = []commonTestCase{
 		times:    []int{0, 0, 0, 0, 1},
 		ret:      []error{nil, nil, nil, nil, nil},
 		want:     ErrGetIDFailed,
-		ctx:      userContext(correctLogin, correctPassword)},
+		ctx:      userContext(someLogin, somePassword)},
 	{
 		caseName: "Normal",
 		times:    []int{1, 1, 1, 0, 1},
 		ret:      []error{nil, nil, nil, nil, nil},
 		want:     nil,
-		ctx: context.WithValue(userContext(correctLogin, correctPassword),
+		ctx: context.WithValue(userContext(someLogin, somePassword),
 			clientIDKey, correctID)},
 	{
 		caseName: "pool.JoinGame error",
 		times:    []int{1, 0, 0, 0, 1},
 		ret:      []error{ErrJoinGame, nil, nil, nil, nil},
 		want:     ErrJoinGame,
-		ctx: context.WithValue(userContext(correctLogin, correctPassword),
+		ctx: context.WithValue(userContext(someLogin, somePassword),
 			clientIDKey, correctID)},
 	{
 		caseName: "gameGeter error",
 		times:    []int{1, 1, 0, 0, 1},
 		ret:      []error{nil, ErrNoGamerID, nil, nil, nil},
 		want:     ErrNoGamerID,
-		ctx: context.WithValue(userContext(correctLogin, correctPassword),
+		ctx: context.WithValue(userContext(someLogin, somePassword),
 			clientIDKey, correctID)},
 	{
 		caseName: "waitGame error",
 		times:    []int{1, 1, 1, 1, 1},
 		ret:      []error{nil, nil, status.Errorf(codes.Canceled, "ERROR"), nil, nil},
 		want:     status.Errorf(codes.Canceled, "ERROR"),
-		ctx: context.WithValue(userContext(correctLogin, correctPassword),
+		ctx: context.WithValue(userContext(someLogin, somePassword),
 			clientIDKey, correctID)},
 	{
 		caseName: "waitGame and release error",
 		times:    []int{1, 1, 1, 1, 1},
 		ret:      []error{nil, nil, status.Errorf(codes.Canceled, "ERROR"), errors.New("some internal error"), nil},
 		want:     status.Errorf(codes.Canceled, "ERROR"),
-		ctx: context.WithValue(userContext(correctLogin, correctPassword),
+		ctx: context.WithValue(userContext(someLogin, somePassword),
 			clientIDKey, correctID)},
 	{
 		caseName:   "nil Game geted",
@@ -80,7 +80,7 @@ var JoinTheGameTests = []commonTestCase{
 		times:      []int{1, 1, 0, 0, 1},
 		ret:        []error{nil, nil, nil, nil, nil},
 		want:       ErrNilGame,
-		ctx: context.WithValue(userContext(correctLogin, correctPassword),
+		ctx: context.WithValue(userContext(someLogin, somePassword),
 			clientIDKey, correctID)},
 }
 
@@ -90,27 +90,27 @@ var WaitTheTurnTests = []commonTestCase{
 		times:    []int{0, 0, 1},
 		ret:      []error{nil, nil, nil},
 		want:     ErrGetIDFailed,
-		ctx:      userContext(correctLogin, correctPassword)},
+		ctx:      userContext(someLogin, somePassword)},
 	{
 		caseName: "Normal",
 		times:    []int{1, 1, 1},
 		ret:      []error{nil, nil, nil},
 		want:     nil,
-		ctx: context.WithValue(userContext(correctLogin, correctPassword),
+		ctx: context.WithValue(userContext(someLogin, somePassword),
 			clientIDKey, correctID)},
 	{
 		caseName: "gameGeter error",
 		times:    []int{1, 0, 1},
 		ret:      []error{ErrNoGamerID, nil, nil},
 		want:     ErrNoGamerID,
-		ctx: context.WithValue(userContext(correctLogin, correctPassword),
+		ctx: context.WithValue(userContext(someLogin, somePassword),
 			clientIDKey, correctID)},
 	{
 		caseName: "waitTurn error",
 		times:    []int{1, 1, 1},
 		ret:      []error{nil, status.Errorf(codes.Canceled, "ERROR"), nil},
 		want:     status.Errorf(codes.Canceled, "ERROR"),
-		ctx: context.WithValue(userContext(correctLogin, correctPassword),
+		ctx: context.WithValue(userContext(someLogin, somePassword),
 			clientIDKey, correctID)},
 	{
 		caseName:   "nil Game geted",
@@ -118,7 +118,7 @@ var WaitTheTurnTests = []commonTestCase{
 		times:      []int{1, 0, 1},
 		ret:        []error{nil, nil, nil},
 		want:       ErrNilGame,
-		ctx: context.WithValue(userContext(correctLogin, correctPassword),
+		ctx: context.WithValue(userContext(someLogin, somePassword),
 			clientIDKey, correctID)},
 }
 
@@ -129,14 +129,14 @@ var MakeTurnTests = []commonTestCase{
 		times:    []int{0, 0, 1},
 		ret:      []error{nil, nil, nil},
 		want:     ErrGetIDFailed,
-		ctx:      userContext(correctLogin, correctPassword)},
+		ctx:      userContext(someLogin, somePassword)},
 	{
 		caseName: "Normal",
 		move:     &api.TurnMessage{X: 1, Y: 1},
 		times:    []int{1, 1, 1},
 		ret:      []error{nil, nil, nil},
 		want:     nil,
-		ctx: context.WithValue(userContext(correctLogin, correctPassword),
+		ctx: context.WithValue(userContext(someLogin, somePassword),
 			clientIDKey, correctID)},
 	{
 		caseName: "gameGeter error",
@@ -144,7 +144,7 @@ var MakeTurnTests = []commonTestCase{
 		times:    []int{1, 0, 1},
 		ret:      []error{ErrNoGamerID, nil, nil},
 		want:     ErrNoGamerID,
-		ctx: context.WithValue(userContext(correctLogin, correctPassword),
+		ctx: context.WithValue(userContext(someLogin, somePassword),
 			clientIDKey, correctID)},
 	{
 		caseName: "waitTurn move error",
@@ -152,7 +152,7 @@ var MakeTurnTests = []commonTestCase{
 		times:    []int{1, 1, 1},
 		ret:      []error{nil, game.ErrWrongTurn, nil},
 		want:     ErrWrongTurn,
-		ctx: context.WithValue(userContext(correctLogin, correctPassword),
+		ctx: context.WithValue(userContext(someLogin, somePassword),
 			clientIDKey, correctID)},
 	{
 		caseName: "waitTurn regular error",
@@ -160,7 +160,7 @@ var MakeTurnTests = []commonTestCase{
 		times:    []int{1, 1, 1},
 		ret:      []error{nil, errors.New("some internal error"), nil},
 		want:     ErrMakeTurn,
-		ctx: context.WithValue(userContext(correctLogin, correctPassword),
+		ctx: context.WithValue(userContext(someLogin, somePassword),
 			clientIDKey, correctID)},
 	{
 		caseName:   "nil Game geted",
@@ -169,7 +169,7 @@ var MakeTurnTests = []commonTestCase{
 		times:      []int{1, 0, 1},
 		ret:        []error{nil, nil, nil},
 		want:       ErrNilGame,
-		ctx: context.WithValue(userContext(correctLogin, correctPassword),
+		ctx: context.WithValue(userContext(someLogin, somePassword),
 			clientIDKey, correctID)},
 }
 
@@ -185,7 +185,7 @@ func TestJoinTheGame(t *testing.T) {
 			pooler := mocks.NewMockPooler(controller)
 			gameGeter := mocks.NewMockGameGeter(controller)
 			gameManager := mocks.NewMockGameManager(controller)
-			s := newServer(authorizator, pooler, gameGeter)
+			s := NewServer(authorizator, pooler, gameGeter)
 			defer s.Release()
 
 			args := singleTestArgs{
@@ -215,7 +215,7 @@ func TestWaitTheTurn(t *testing.T) {
 			pooler := mocks.NewMockPooler(controller)
 			gameGeter := mocks.NewMockGameGeter(controller)
 			gameManager := mocks.NewMockGameManager(controller)
-			s := newServer(authorizator, pooler, gameGeter)
+			s := NewServer(authorizator, pooler, gameGeter)
 			defer s.Release()
 
 			args := singleTestArgs{
@@ -245,7 +245,7 @@ func TestMakeTurn(t *testing.T) {
 			pooler := mocks.NewMockPooler(controller)
 			gameGeter := mocks.NewMockGameGeter(controller)
 			gameManager := mocks.NewMockGameManager(controller)
-			s := newServer(authorizator, pooler, gameGeter)
+			s := NewServer(authorizator, pooler, gameGeter)
 			defer s.Release()
 
 			args := singleTestArgs{
@@ -264,7 +264,7 @@ func TestMakeTurn(t *testing.T) {
 }
 
 func performTestJoinTheGame(t *testing.T, args singleTestArgs) {
-	var gm server.GameManager
+	var gm interfaces.GameManager
 	if !args.nilManager {
 		gm = args.gameManager
 	}
@@ -294,7 +294,7 @@ func performTestJoinTheGame(t *testing.T, args singleTestArgs) {
 }
 
 func performTestWaitTheTurn(t *testing.T, args singleTestArgs) {
-	var gm server.GameManager
+	var gm interfaces.GameManager
 	if !args.nilManager {
 		gm = args.gameManager
 	}
@@ -316,7 +316,7 @@ func performTestWaitTheTurn(t *testing.T, args singleTestArgs) {
 }
 
 func performTestMakeTurn(t *testing.T, args singleTestArgs) {
-	var gm server.GameManager
+	var gm interfaces.GameManager
 	if !args.nilManager {
 		gm = args.gameManager
 	}

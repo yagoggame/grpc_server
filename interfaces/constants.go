@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with yagogame.  If not, see <https://www.gnu.org/licenses/>.
 
-package server
+package interfaces
 
 import "errors"
 
@@ -23,4 +23,6 @@ var (
 	ErrLogin = errors.New("wrong login")
 	// ErrPassword occurs when password not recognized by Authorizator interface
 	ErrPassword = errors.New("wrong password")
+	// ErrLoginOccupied occurs occurs when registering a user with a name that is already occupied.
+	ErrLoginOccupied = errors.New("login occupied")
 )

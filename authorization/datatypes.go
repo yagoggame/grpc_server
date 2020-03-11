@@ -14,6 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with yagogame.  If not, see <https://www.gnu.org/licenses/>.
 
-// Package server provides description of interfaces and constants
-// used by submodules
-package server
+package authorization
+
+// User contains user attributes
+type User struct {
+	Password string
+	ID       int
+}

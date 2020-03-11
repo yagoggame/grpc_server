@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with yagogame.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package server
 
 import (
 	"context"
@@ -25,7 +25,7 @@ import (
 
 	"github.com/yagoggame/api"
 	"github.com/yagoggame/gomaster/game"
-	server "github.com/yagoggame/grpc_server"
+	"github.com/yagoggame/grpc_server/interfaces"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -34,8 +34,10 @@ import (
 var (
 	// ErrGetIDFailed occurs when context not contains an ID
 	ErrGetIDFailed = status.Errorf(codes.Internal, "can't get gamer's ID from context")
-	// ErrNameEmpty occurs login is empty
-	ErrNameEmpty = status.Errorf(codes.Internal, "lobby don't accept empty name(login)")
+	// ErrLoginEmpty occurs login is empty
+	ErrLoginEmpty = status.Errorf(codes.Internal, "lobby don't accepts empty login")
+	// ErrPasswordEmpty occurs password is empty
+	ErrPasswordEmpty = status.Errorf(codes.Internal, "lobby don't accepts empty password")
 	// ErrWrongIDType occurs when context not contains an ID of valid type
 	ErrWrongIDType = status.Errorf(codes.Internal, "unpredicted type of interface value")
 	// ErrAddGamer occurs when failed to EnterTheLobby
@@ -54,6 +56,12 @@ var (
 	ErrMakeTurn = status.Errorf(codes.Internal, "can't make turn for a gamer")
 	// ErrWrongTurn occurs when wrong data providet to MakeTurn
 	ErrWrongTurn = status.Errorf(codes.InvalidArgument, "wrong turn for a gamer")
+	// ErrIDMatching occurs when id of context not match with result of authorizator work
+	ErrIDMatching = status.Errorf(codes.Internal, "id doesn't match")
+	// ErrRemovingUser occurs when authorizator fails to remove user
+	ErrRemovingUser = status.Errorf(codes.Unknown, "can't remove user")
+	// ErrChangeUser occurs when authorizator fails to change user's requisites
+	ErrChangeUser = status.Errorf(codes.Unknown, "can't change user requisites")
 )
 
 func extGrpcError(err error, ext string) error {
@@ -66,14 +74,14 @@ func extGrpcError(err error, ext string) error {
 
 // Server represents the gRPC server.
 type Server struct {
-	pool         server.Pooler
-	authorizator server.Authorizator
-	gameGeter    server.GameGeter
+	pool         interfaces.Pooler
+	authorizator interfaces.Authorizator
+	gameGeter    interfaces.GameGeter
 }
 
-// newServer Creates a new Server instance.
+// NewServer Creates a new Server instance.
 // After using, it mast be destroyed by Release call.
-func newServer(authorizator server.Authorizator, pool server.Pooler, gameGeter server.GameGeter) *Server {
+func NewServer(authorizator interfaces.Authorizator, pool interfaces.Pooler, gameGeter interfaces.GameGeter) *Server {
 	return &Server{
 		pool:         pool,
 		authorizator: authorizator,
@@ -81,19 +89,65 @@ func newServer(authorizator server.Authorizator, pool server.Pooler, gameGeter s
 	}
 }
 
-// idFromCtx gets id as integer from context.
-func idFromCtx(ctx context.Context) (id int, err error) {
-	iid := ctx.Value(clientIDKey)
-	if iid == nil {
-		return 0, ErrGetIDFailed
-	}
-
-	id, ok := iid.(int)
+// RegisterUser provides registration of user by authorizator.
+func (s *Server) RegisterUser(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return 0, fmt.Errorf("%w: %T", ErrWrongIDType, iid)
+		return &api.EmptyMessage{}, ErrMissCred
+	}
+	login := strings.Join(md["login"], "")
+
+	log.Printf("user with login %q registred", login)
+	return &api.EmptyMessage{}, nil
+}
+
+// RemoveUser provides removing of user by authorizator.
+func (s *Server) RemoveUser(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
+	requisites, id, err := requisitesFromContext(ctx)
+	if err != nil {
+		log.Printf("RegisterUser error: %s", err)
+		return &api.EmptyMessage{}, err
 	}
 
-	return id, nil
+	err = s.authorizator.Remove(requisites)
+
+	if err != nil {
+		err := extGrpcError(ErrRemovingUser, fmt.Sprintf("user with login %q, id %d: %v", requisites.Login, id, err))
+		log.Printf("RegisterUser error: %s", err)
+		return &api.EmptyMessage{}, err
+	}
+
+	log.Printf("user with login %q, id %d removed", requisites.Login, id)
+
+	return &api.EmptyMessage{}, nil
+}
+
+// ChangeUserRequisits provides change of requisits for user by authorizator.
+func (s *Server) ChangeUserRequisits(ctx context.Context, requisits *api.RequisitsMessage) (*api.EmptyMessage, error) {
+	requisitesOld, id, err := requisitesFromContext(ctx)
+	if err != nil {
+		log.Printf("ChangeUserRequisits error: %s", err)
+		return &api.EmptyMessage{}, err
+	}
+
+	requisitesNew := &interfaces.Requisites{
+		Login:    requisits.Login,
+		Password: requisits.Password,
+	}
+
+	err = s.authorizator.ChangeRequisites(requisitesOld, requisitesNew)
+
+	if err != nil {
+		err := extGrpcError(ErrChangeUser, fmt.Sprintf("user with login %q, id %d (new login %q): %v",
+			requisitesOld.Login, id, requisitesNew.Login, err))
+		log.Printf("ChangeUserRequisits error: %s", err)
+		return &api.EmptyMessage{}, err
+	}
+
+	log.Printf("user with login %q, id %d changed his requisites (new login %q)",
+		requisitesOld.Login, id, requisitesNew.Login)
+
+	return &api.EmptyMessage{}, nil
 }
 
 // EnterTheLobby puts a player into the lobby.
@@ -241,14 +295,29 @@ func (s *Server) Release() {
 	s.pool.Release()
 }
 
+// idFromCtx gets id as integer from context.
+func idFromCtx(ctx context.Context) (id int, err error) {
+	iid := ctx.Value(clientIDKey)
+	if iid == nil {
+		return 0, ErrGetIDFailed
+	}
+
+	id, ok := iid.(int)
+	if !ok {
+		return 0, fmt.Errorf("%w: %T", ErrWrongIDType, iid)
+	}
+
+	return id, nil
+}
+
 func userFromContext(ctx context.Context) (gamer *game.Gamer, err error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, ErrMissCred
 	}
-	name := strings.Join(md["login"], "")
-	if len(name) < 1 {
-		return nil, ErrNameEmpty
+	login := strings.Join(md["login"], "")
+	if len(login) < 1 {
+		return nil, ErrLoginEmpty
 	}
 
 	id, err := idFromCtx(ctx)
@@ -256,7 +325,31 @@ func userFromContext(ctx context.Context) (gamer *game.Gamer, err error) {
 		return nil, err
 	}
 
-	return &game.Gamer{Name: name, ID: id}, nil
+	return &game.Gamer{Name: login, ID: id}, nil
+}
+
+func requisitesFromContext(ctx context.Context) (requisites *interfaces.Requisites, id int, err error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, 0, ErrMissCred
+	}
+	requisites = &interfaces.Requisites{
+		Login:    strings.Join(md["login"], ""),
+		Password: strings.Join(md["password"], ""),
+	}
+	if len(requisites.Login) < 1 {
+		return nil, 0, ErrLoginEmpty
+	}
+	if len(requisites.Password) < 1 {
+		return nil, 0, ErrPasswordEmpty
+	}
+
+	id, err = idFromCtx(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return requisites, id, nil
 }
 
 func (s *Server) waitGame(ctx context.Context, id int) error {
@@ -280,7 +373,7 @@ func (s *Server) waitGame(ctx context.Context, id int) error {
 	return nil
 }
 
-func makeTurn(gm server.GameManager, id int, move *game.TurnData) error {
+func makeTurn(gm interfaces.GameManager, id int, move *game.TurnData) error {
 	if err := gm.MakeTurn(id, move); err != nil {
 		if errors.Is(err, game.ErrWrongTurn) {
 			err = extGrpcError(ErrWrongTurn, fmt.Sprintf(" with id %d: %v", id, err))

@@ -14,12 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with yagogame.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package server
 
 import (
 	"fmt"
 
-	server "github.com/yagoggame/grpc_server"
+	"github.com/yagoggame/grpc_server/interfaces"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -32,19 +32,19 @@ var (
 // GameGeter implements GameGeter interface
 // it is separated from the Server for testing purposes.
 type GameGeter struct {
-	pool server.Pooler
+	pool interfaces.Pooler
 }
 
 // NewGameGeter creates a new GameGeter instance.
-func newGameGeter(pool server.Pooler) *GameGeter {
+func NewGameGeter(pool interfaces.Pooler) *GameGeter {
 	return &GameGeter{
 		pool: pool,
 	}
 }
 
 // GetGame method returns Game of Gamer with specified ID
-// as server.GameManager intyerface with testing purposes.
-func (gg *GameGeter) GetGame(id int) (server.GameManager, error) {
+// as interfaces.GameManager intyerface with testing purposes.
+func (gg *GameGeter) GetGame(id int) (interfaces.GameManager, error) {
 	gamer, err := gg.pool.GetGamer(id)
 	if err != nil {
 		err = extGrpcError(ErrNoGamerID, fmt.Sprintf(" with id %d: %v", id, err))

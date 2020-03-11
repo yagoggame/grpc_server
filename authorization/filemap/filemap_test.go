@@ -14,11 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with yagogame.  If not, see <https://www.gnu.org/licenses/>.
 
-package dummy
+package filemap
 
 import (
+	"bytes"
+	"errors"
 	"io/ioutil"
 	"log"
+	"os"
 	"testing"
 
 	"github.com/yagoggame/grpc_server/interfaces"
@@ -27,6 +30,48 @@ import (
 type iderr struct {
 	id  int
 	err error
+}
+
+var (
+	commonFileName = "tmp.json"
+	wrongFileName  = "tmp.json.tar"
+)
+
+var jsonPrestoredContent = `[
+	{
+		"login": "Joe",
+		"password": "aaa",
+		"id": 2
+	}
+]
+`
+
+var newTests = []struct {
+	name        string
+	fileName    string
+	fileContent string
+	wantErr     error
+	wantCount   int
+}{
+	{
+		name:      "correct extension no file",
+		fileName:  commonFileName,
+		wantErr:   nil,
+		wantCount: 2,
+	},
+	{
+		name:        "correct extension prestored file content",
+		fileName:    commonFileName,
+		fileContent: jsonPrestoredContent,
+		wantErr:     nil,
+		wantCount:   1,
+	},
+	{
+		name:      "wrong extension",
+		fileName:  wrongFileName,
+		wantErr:   ErrNotImpl,
+		wantCount: 0,
+	},
 }
 
 var testsAuthorize = []struct {
@@ -68,6 +113,34 @@ var testsAuthorize = []struct {
 	},
 }
 
+var testsRegister = []struct {
+	caseName   string
+	requisites interfaces.Requisites
+	want       error
+}{
+	{
+		caseName: "registred login",
+		requisites: interfaces.Requisites{
+			Login:    "Joe",
+			Password: "aaa",
+		},
+		want: interfaces.ErrLoginOccupied},
+	{
+		caseName: "unregistred login first",
+		requisites: interfaces.Requisites{
+			Login:    "Piter",
+			Password: "aaa",
+		},
+		want: nil},
+	{
+		caseName: "unregistred login second",
+		requisites: interfaces.Requisites{
+			Login:    "Mike",
+			Password: "mmm",
+		},
+		want: nil},
+}
+
 var testsRemove = []struct {
 	caseName   string
 	requisites interfaces.Requisites
@@ -105,34 +178,6 @@ var testsRemove = []struct {
 		},
 		want: nil,
 	},
-}
-
-var testsRegister = []struct {
-	caseName   string
-	requisites interfaces.Requisites
-	want       error
-}{
-	{
-		caseName: "registred login",
-		requisites: interfaces.Requisites{
-			Login:    "Joe",
-			Password: "aaa",
-		},
-		want: interfaces.ErrLoginOccupied},
-	{
-		caseName: "unregistred login first",
-		requisites: interfaces.Requisites{
-			Login:    "Piter",
-			Password: "aaa",
-		},
-		want: nil},
-	{
-		caseName: "unregistred login second",
-		requisites: interfaces.Requisites{
-			Login:    "Mike",
-			Password: "mmm",
-		},
-		want: nil},
 }
 
 var testsChangeRequisites = []struct {
@@ -203,9 +248,33 @@ var testsChangeRequisites = []struct {
 	},
 }
 
+func TestNew(t *testing.T) {
+	for _, test := range newTests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := mkFileWithContent(test.fileName, test.fileContent); err != nil {
+				t.Fatalf("Unexpected mkFile() err: %v", err)
+			}
+
+			authorizator, err := New(test.fileName)
+			if !errors.Is(err, test.wantErr) {
+				t.Errorf("Unexpected err:\nwant: %v,\ngot: %v.", test.wantErr, err)
+			}
+			if err == nil && authorizator.Len() != test.wantCount {
+				t.Errorf("Unexpected users count:\nwant: %d,\ngot: %d.", test.wantCount, authorizator.Len())
+			}
+
+			errR := os.Remove(test.fileName)
+			if err == nil && errR != nil {
+				t.Errorf("Unexpected file %q remove err:\nwant: %v,\ngot: %v.", test.fileName, nil, errR)
+			}
+		})
+	}
+}
+
 func TestAuthorize(t *testing.T) {
 	log.SetOutput(ioutil.Discard)
-	authorizator := New()
+	authorizator, contentBefore := pretestActions(t, commonFileName)
+
 	for _, test := range testsAuthorize {
 		t.Run(test.caseName, func(t *testing.T) {
 			id, err := authorizator.Authorize(&test.requisites)
@@ -213,11 +282,16 @@ func TestAuthorize(t *testing.T) {
 			testIDErr(t, test.want, iderr{id: id, err: err})
 		})
 	}
+
+	contentAfter := posttestActions(t, commonFileName)
+	if bytes.Compare(contentBefore, contentAfter) != 0 {
+		t.Errorf("unexpected file change")
+	}
 }
 
 func TestRegister(t *testing.T) {
 	log.SetOutput(ioutil.Discard)
-	authorizator := New()
+	authorizator, contentBefore := pretestActions(t, commonFileName)
 
 	for _, test := range testsRegister {
 		t.Run(test.caseName, func(t *testing.T) {
@@ -226,11 +300,16 @@ func TestRegister(t *testing.T) {
 			testErr(t, test.want, err)
 		})
 	}
+
+	contentAfter := posttestActions(t, commonFileName)
+	if bytes.Compare(contentBefore, contentAfter) == 0 {
+		t.Errorf("unexpected file invariance")
+	}
 }
 
 func TestRemove(t *testing.T) {
 	log.SetOutput(ioutil.Discard)
-	authorizator := New()
+	authorizator, contentBefore := pretestActions(t, commonFileName)
 
 	for _, test := range testsRemove {
 		t.Run(test.caseName, func(t *testing.T) {
@@ -252,11 +331,17 @@ func TestRemove(t *testing.T) {
 
 		})
 	}
+
+	contentAfter := posttestActions(t, commonFileName)
+	if bytes.Compare(contentBefore, contentAfter) == 0 {
+		t.Errorf("unexpected file invariance")
+	}
 }
 
 func TestChangeRequisites(t *testing.T) {
 	log.SetOutput(ioutil.Discard)
-	authorizator := New()
+	authorizator, contentBefore := pretestActions(t, commonFileName)
+
 	for _, test := range testsChangeRequisites {
 		t.Run(test.caseName, func(t *testing.T) {
 			err := authorizator.ChangeRequisites(&test.requisitesOld, &test.requisitesNew)
@@ -273,6 +358,29 @@ func TestChangeRequisites(t *testing.T) {
 			}
 		})
 	}
+
+	contentAfter := posttestActions(t, commonFileName)
+	if bytes.Compare(contentBefore, contentAfter) == 0 {
+		t.Errorf("unexpected file invariance")
+	}
+}
+
+func mkFileWithContent(fileName, fileContent string) error {
+	if len(fileContent) < 1 {
+		return nil
+	}
+
+	file, err := os.Create(fileName)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	if _, err := file.WriteString(fileContent); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func testIDErr(t *testing.T, want, got iderr) {
@@ -288,4 +396,27 @@ func testErr(t *testing.T, want, got error) {
 	if got != want {
 		t.Errorf("Unexpected err:\nwant: %v,\ngot: %v.", want, got)
 	}
+}
+
+func pretestActions(t *testing.T, filename string) (*Authorizator, []byte) {
+	authorizator, err := New(commonFileName)
+	if err != nil {
+		t.Fatalf("Unexpected New() err: %v", err)
+	}
+	contentBefore, err := ioutil.ReadFile(commonFileName)
+	if err != nil {
+		t.Fatalf("Unexpected ReadFile err: %v", err)
+	}
+	return authorizator, contentBefore
+}
+
+func posttestActions(t *testing.T, filename string) []byte {
+	contentAfter, err := ioutil.ReadFile(commonFileName)
+	if err != nil {
+		t.Fatalf("Unexpected ReadFile err: %v", err)
+	}
+	if err := os.Remove(commonFileName); err != nil {
+		t.Errorf("Unexpected os.Remove err: %v.", err)
+	}
+	return contentAfter
 }
