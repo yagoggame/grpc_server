@@ -19,6 +19,7 @@ package json
 import (
 	"errors"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
@@ -153,6 +154,23 @@ var decodeTests = []struct {
 	},
 }
 
+var reconstructTests = []struct {
+	name      string
+	users     map[string]*authorization.User
+	jsonValue string
+}{
+	{
+		name:      "two users",
+		users:     twoUsers,
+		jsonValue: twoJSON,
+	},
+	{
+		name:      "one user",
+		users:     oneUser,
+		jsonValue: oneJSON,
+	},
+}
+
 func TestSave(t *testing.T) {
 	maper := New()
 	for _, test := range encodeTests {
@@ -163,7 +181,7 @@ func TestSave(t *testing.T) {
 			if !errors.Is(err, test.wantErr) {
 				t.Errorf("Unexpected err:\nwant: %v,\ngot: %v.", test.wantErr, err)
 			}
-			if writer.String() != test.wantJSON {
+			if !compareFiles(writer.String(), test.wantJSON) {
 				t.Errorf("Unexpected json:\nwant: %q,\n got: %q", test.wantJSON, writer.String())
 			}
 		})
@@ -186,4 +204,40 @@ func TestLoad(t *testing.T) {
 			}
 		})
 	}
+}
+
+// compareFiles is only an estimate
+// final check is decoding of encoded users map
+func TestReconstruct(t *testing.T) {
+	maper := New()
+	for _, test := range reconstructTests {
+		t.Run(test.name, func(t *testing.T) {
+			writer := &strings.Builder{}
+			reader := strings.NewReader(test.jsonValue)
+
+			err := maper.Save(test.users, writer)
+			if err != nil {
+				t.Errorf("Unexpected Save err: %v.", err)
+			}
+			users, err := maper.Load(reader)
+			if err != nil {
+				t.Errorf("Unexpected Load err: %v.", err)
+			}
+
+			if !reflect.DeepEqual(test.users, users) {
+				t.Errorf("Unexpected users:\nwant: %v,\n got: %v", test.users, users)
+			}
+		})
+	}
+}
+
+// file is constructed from map
+// so users may be in different order
+func compareFiles(str1, str2 string) bool {
+	lines1 := strings.Split(str1, "\n")
+	lines2 := strings.Split(str2, "\n")
+	sort.Strings(lines1)
+	sort.Strings(lines2)
+
+	return reflect.DeepEqual(lines1, lines2)
 }
