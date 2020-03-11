@@ -72,6 +72,12 @@ var newTests = []struct {
 		wantErr:   ErrNotImpl,
 		wantCount: 0,
 	},
+	{
+		name:      "empty filename",
+		fileName:  "",
+		wantErr:   ErrNotImpl,
+		wantCount: 0,
+	},
 }
 
 var testsAuthorize = []struct {
