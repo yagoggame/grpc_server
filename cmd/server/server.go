@@ -36,10 +36,12 @@ var (
 
 // IniDataContainer is a container of initial data to run server.
 type IniDataContainer struct {
-	Port     int
-	IP       string
-	CertFile string
-	KeyFile  string
+	Port       int
+	IP         string
+	CertFile   string
+	KeyFile    string
+	Authorizer string
+	Filename   string
 }
 
 // private type for Context keys.
