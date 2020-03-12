@@ -207,7 +207,10 @@ func TestAuthorize(t *testing.T) {
 	log.SetOutput(ioutil.Discard)
 	authorizator := New()
 	for _, test := range testsAuthorize {
+		test := test
 		t.Run(test.caseName, func(t *testing.T) {
+			t.Parallel()
+
 			id, err := authorizator.Authorize(&test.requisites)
 
 			testIDErr(t, test.want, iderr{id: id, err: err})

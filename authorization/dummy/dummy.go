@@ -20,25 +20,34 @@ package dummy
 import (
 	"log"
 	"sort"
+	"sync"
 
 	"github.com/yagoggame/grpc_server/authorization"
 	"github.com/yagoggame/grpc_server/interfaces"
 )
 
 // Authorizator implements interfaces.Authorizator interface
-type Authorizator map[string]*authorization.User
+type Authorizator struct {
+	users map[string]*authorization.User
+	mutex sync.RWMutex
+}
 
 // New constructs new Authorizator
-func New() Authorizator {
-	return map[string]*authorization.User{
-		"Joe":  &authorization.User{Password: "aaa", ID: 2},
-		"Nick": &authorization.User{Password: "bbb", ID: 3},
+func New() *Authorizator {
+	return &Authorizator{
+		users: map[string]*authorization.User{
+			"Joe":  &authorization.User{Password: "aaa", ID: 2},
+			"Nick": &authorization.User{Password: "bbb", ID: 3},
+		},
 	}
 }
 
 // Authorize attempts to authorize a user and returns the id if success
-func (users Authorizator) Authorize(requisites *interfaces.Requisites) (id int, err error) {
-	user, ok := users[requisites.Login]
+func (authorizator *Authorizator) Authorize(requisites *interfaces.Requisites) (id int, err error) {
+	authorizator.mutex.RLock()
+	defer authorizator.mutex.RUnlock()
+
+	user, ok := authorizator.users[requisites.Login]
 	if !ok {
 		return 0, interfaces.ErrLogin
 	}
@@ -51,25 +60,31 @@ func (users Authorizator) Authorize(requisites *interfaces.Requisites) (id int, 
 }
 
 // Register attempts to register a new user and returns the id if success
-func (users Authorizator) Register(requisites *interfaces.Requisites) error {
-	user, ok := users[requisites.Login]
+func (authorizator *Authorizator) Register(requisites *interfaces.Requisites) error {
+	authorizator.mutex.Lock()
+	defer authorizator.mutex.Unlock()
+
+	user, ok := authorizator.users[requisites.Login]
 	if ok {
 		return interfaces.ErrLoginOccupied
 	}
 
 	user = &authorization.User{
 		Password: requisites.Password,
-		ID:       users.getFirstVacantID(),
+		ID:       authorizator.getFirstVacantID(),
 	}
-	users[requisites.Login] = user
+	authorizator.users[requisites.Login] = user
 
 	log.Printf("client has been registred: %s, %d", requisites.Login, user.ID)
 	return nil
 }
 
 // Remove attempts to remove a user and returns the id if success
-func (users Authorizator) Remove(requisites *interfaces.Requisites) error {
-	user, ok := users[requisites.Login]
+func (authorizator *Authorizator) Remove(requisites *interfaces.Requisites) error {
+	authorizator.mutex.Lock()
+	defer authorizator.mutex.Unlock()
+
+	user, ok := authorizator.users[requisites.Login]
 	if !ok {
 		return interfaces.ErrLogin
 	}
@@ -77,15 +92,18 @@ func (users Authorizator) Remove(requisites *interfaces.Requisites) error {
 		return interfaces.ErrPassword
 	}
 
-	delete(users, requisites.Login)
+	delete(authorizator.users, requisites.Login)
 
 	log.Printf("client removed: %s", requisites.Login)
 	return nil
 }
 
 // ChangeRequisites changes requisites of user from requisitesOld to requisitesNew
-func (users Authorizator) ChangeRequisites(requisitesOld, requisitesNew *interfaces.Requisites) error {
-	user, ok := users[requisitesOld.Login]
+func (authorizator *Authorizator) ChangeRequisites(requisitesOld, requisitesNew *interfaces.Requisites) error {
+	authorizator.mutex.Lock()
+	defer authorizator.mutex.Unlock()
+
+	user, ok := authorizator.users[requisitesOld.Login]
 	if !ok {
 		return interfaces.ErrLogin
 	}
@@ -94,26 +112,29 @@ func (users Authorizator) ChangeRequisites(requisitesOld, requisitesNew *interfa
 	}
 
 	if requisitesNew.Login != requisitesOld.Login {
-		if _, ok := users[requisitesNew.Login]; ok {
+		if _, ok := authorizator.users[requisitesNew.Login]; ok {
 			return interfaces.ErrLoginOccupied
 		}
 
-		users[requisitesNew.Login] = users[requisitesOld.Login]
-		delete(users, requisitesOld.Login)
+		authorizator.users[requisitesNew.Login] = authorizator.users[requisitesOld.Login]
+		delete(authorizator.users, requisitesOld.Login)
 	}
-	users[requisitesNew.Login].Password = requisitesNew.Password
+	authorizator.users[requisitesNew.Login].Password = requisitesNew.Password
 	log.Printf("requisites changed from: %v to %v", requisitesOld, requisitesNew)
 	return nil
 }
 
 // Len returns number of users
-func (users Authorizator) Len() int {
-	return len(users)
+func (authorizator *Authorizator) Len() int {
+	authorizator.mutex.RLock()
+	defer authorizator.mutex.RUnlock()
+
+	return len(authorizator.users)
 }
 
-func (users Authorizator) getFirstVacantID() (id int) {
-	ids := make([]int, 0, len(users))
-	for _, user := range users {
+func (authorizator *Authorizator) getFirstVacantID() (id int) {
+	ids := make([]int, 0, len(authorizator.users))
+	for _, user := range authorizator.users {
 		ids = append(ids, user.ID)
 	}
 	sort.Ints(ids)
