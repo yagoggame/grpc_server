@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with yagogame.  If not, see <https://www.gnu.org/licenses/>.
 
-package filemap
+package filemap_test
 
 import (
 	"bytes"
@@ -24,6 +24,7 @@ import (
 	"os"
 	"testing"
 
+	. "github.com/yagoggame/grpc_server/authorization/filemap"
 	"github.com/yagoggame/grpc_server/interfaces"
 )
 
@@ -282,7 +283,9 @@ func TestAuthorize(t *testing.T) {
 	authorizator, contentBefore := pretestActions(t, commonFileName)
 
 	for _, test := range testsAuthorize {
+		test := test
 		t.Run(test.caseName, func(t *testing.T) {
+			t.Parallel()
 			id, err := authorizator.Authorize(&test.requisites)
 
 			testIDErr(t, test.want, iderr{id: id, err: err})
