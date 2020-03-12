@@ -14,13 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with yagogame.  If not, see <https://www.gnu.org/licenses/>.
 
-package dummy
+package dummy_test
 
 import (
 	"io/ioutil"
 	"log"
 	"testing"
 
+	. "github.com/yagoggame/grpc_server/authorization/dummy"
 	"github.com/yagoggame/grpc_server/interfaces"
 )
 
@@ -207,7 +208,10 @@ func TestAuthorize(t *testing.T) {
 	log.SetOutput(ioutil.Discard)
 	authorizator := New()
 	for _, test := range testsAuthorize {
+		test := test
 		t.Run(test.caseName, func(t *testing.T) {
+			t.Parallel()
+
 			id, err := authorizator.Authorize(&test.requisites)
 
 			testIDErr(t, test.want, iderr{id: id, err: err})

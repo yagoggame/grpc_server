@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with yagogame.  If not, see <https://www.gnu.org/licenses/>.
 
-package json
+package json_test
 
 import (
 	"errors"
@@ -24,6 +24,8 @@ import (
 	"testing"
 
 	"github.com/yagoggame/grpc_server/authorization"
+
+	. "github.com/yagoggame/grpc_server/authorization/filemap/json"
 )
 
 var twoUsers = map[string]*authorization.User{

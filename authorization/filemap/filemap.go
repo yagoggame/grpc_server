@@ -24,6 +24,7 @@ import (
 	"os"
 	"path"
 	"sort"
+	"sync"
 
 	"github.com/yagoggame/grpc_server/authorization"
 	"github.com/yagoggame/grpc_server/authorization/filemap/json"
@@ -50,6 +51,7 @@ type Authorizator struct {
 	fileName string
 	maper    FileMaper
 	users    map[string]*authorization.User
+	mutex    sync.RWMutex
 }
 
 // New constructs new Authorizator
@@ -73,6 +75,9 @@ func New(fileName string) (*Authorizator, error) {
 
 // Authorize attempts to authorize a user and returns the id if success
 func (authorizator *Authorizator) Authorize(requisites *interfaces.Requisites) (id int, err error) {
+	authorizator.mutex.RLock()
+	defer authorizator.mutex.RUnlock()
+
 	user, ok := authorizator.users[requisites.Login]
 	if !ok {
 		return 0, interfaces.ErrLogin
@@ -87,6 +92,9 @@ func (authorizator *Authorizator) Authorize(requisites *interfaces.Requisites) (
 
 // Register attempts to register a new user and returns the id if success
 func (authorizator *Authorizator) Register(requisites *interfaces.Requisites) error {
+	authorizator.mutex.Lock()
+	defer authorizator.mutex.Unlock()
+
 	user, ok := authorizator.users[requisites.Login]
 	if ok {
 		return interfaces.ErrLoginOccupied
@@ -109,6 +117,9 @@ func (authorizator *Authorizator) Register(requisites *interfaces.Requisites) er
 
 // Remove attempts to remove a user and returns the id if success
 func (authorizator *Authorizator) Remove(requisites *interfaces.Requisites) error {
+	authorizator.mutex.Lock()
+	defer authorizator.mutex.Unlock()
+
 	user, ok := authorizator.users[requisites.Login]
 	if !ok {
 		return interfaces.ErrLogin
@@ -130,6 +141,9 @@ func (authorizator *Authorizator) Remove(requisites *interfaces.Requisites) erro
 
 // ChangeRequisites changes requisites of user from requisitesOld to requisitesNew
 func (authorizator *Authorizator) ChangeRequisites(requisitesOld, requisitesNew *interfaces.Requisites) error {
+	authorizator.mutex.Lock()
+	defer authorizator.mutex.Unlock()
+
 	user, ok := authorizator.users[requisitesOld.Login]
 	if !ok {
 		return interfaces.ErrLogin
@@ -159,6 +173,9 @@ func (authorizator *Authorizator) ChangeRequisites(requisitesOld, requisitesNew 
 
 // Len returns number of users
 func (authorizator *Authorizator) Len() int {
+	authorizator.mutex.RLock()
+	defer authorizator.mutex.RUnlock()
+
 	return len(authorizator.users)
 }
 
