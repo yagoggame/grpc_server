@@ -25,10 +25,16 @@ import (
 
 	"github.com/yagoggame/api"
 	"github.com/yagoggame/gomaster/game"
+	gi "github.com/yagoggame/gomaster/game/interfaces"
 	"github.com/yagoggame/grpc_server/interfaces"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+)
+
+const (
+	standartSize = 9
+	standartKomi = 0.0
 )
 
 var (
@@ -62,6 +68,8 @@ var (
 	ErrRemovingUser = status.Errorf(codes.Unknown, "can't remove user")
 	// ErrChangeUser occurs when authorizator fails to change user's requisites
 	ErrChangeUser = status.Errorf(codes.Unknown, "can't change user requisites")
+	// ErrGameState occurs when authorizatorgame manager failed to get game state
+	ErrGameState = status.Errorf(codes.Internal, "can't get game state")
 )
 
 func extGrpcError(err error, ext string) error {
@@ -189,55 +197,58 @@ func (s *Server) LeaveTheLobby(ctx context.Context, in *api.EmptyMessage) (*api.
 }
 
 // JoinTheGame joins a player to another player or starts a game and waits of another player.
-func (s *Server) JoinTheGame(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
+func (s *Server) JoinTheGame(ctx context.Context, in *api.EmptyMessage) (*api.State, error) {
 	id, err := idFromCtx(ctx)
 	if err != nil {
 		log.Printf("JoinTheGame error: %s", err)
-		return &api.EmptyMessage{}, err
+		return &api.State{}, err
 	}
 
-	if err := s.pool.JoinGame(id); err != nil {
+	if err := s.pool.JoinGame(id, standartSize, standartKomi); err != nil {
 		err := extGrpcError(ErrJoinGame, err.Error())
 		log.Printf("JoinTheGame error: %s", err)
-		return &api.EmptyMessage{}, err
+		return &api.State{}, err
 	}
 
-	if err := s.waitGame(ctx, id); err != nil {
+	state, err := s.waitGame(ctx, id)
+	if err != nil {
 		log.Printf("JoinTheGame error: %s", err)
-		return &api.EmptyMessage{}, err
+		return &api.State{}, err
 	}
 
 	log.Printf("game for gamer with id %d has been begun", id)
-	return &api.EmptyMessage{}, nil
+	return state, nil
 }
 
 // WaitTheTurn waits for gamers turn.
-func (s *Server) WaitTheTurn(ctx context.Context, in *api.EmptyMessage) (*api.EmptyMessage, error) {
+func (s *Server) WaitTheTurn(ctx context.Context, in *api.EmptyMessage) (*api.State, error) {
 	id, err := idFromCtx(ctx)
 	if err != nil {
 		log.Printf("WaitTheTurn error: %s", err)
-		return &api.EmptyMessage{}, err
+		return &api.State{}, err
 	}
 
 	gameManager, err := s.gameGeter.GetGame(id)
 	if err != nil {
 		log.Printf("WaitTheTurn error: %s", err)
-		return &api.EmptyMessage{}, err
+		return &api.State{}, err
 	}
 	if gameManager == nil {
 		err = extGrpcError(ErrNilGame, fmt.Sprintf(" with id %d: %v", id, err))
 		log.Printf("WaitTheTurn error: %s", err)
-		return &api.EmptyMessage{}, err
+		return &api.State{}, err
 	}
 
 	log.Printf("Gamer with id %d waiting for his turn...", id)
-	if err := gameManager.WaitTurn(ctx, id); err != nil {
+	state, err := s.waitTurn(ctx, gameManager, id)
+	if err != nil {
 		log.Printf("WaitTheTurn error: %s", err)
-		return &api.EmptyMessage{}, err
+		return &api.State{}, err
 	}
+
 	log.Printf("turn of gamer with id %d has been begun", id)
 
-	return &api.EmptyMessage{}, nil
+	return state, nil
 }
 
 // LeaveTheGame exits the gamer from the game.
@@ -261,33 +272,34 @@ func (s *Server) LeaveTheGame(ctx context.Context, in *api.EmptyMessage) (*api.E
 }
 
 // MakeTurn tries to make a turn with data of "in" message.
-func (s *Server) MakeTurn(ctx context.Context, in *api.TurnMessage) (*api.EmptyMessage, error) {
+func (s *Server) MakeTurn(ctx context.Context, in *api.TurnMessage) (*api.State, error) {
 	id, err := idFromCtx(ctx)
 	if err != nil {
 		log.Printf("JoinTheGame error: %s", err)
-		return &api.EmptyMessage{}, err
+		return &api.State{}, err
 	}
 
 	gameManager, err := s.gameGeter.GetGame(id)
 	if err != nil {
 		log.Printf("MakeTurn error: %s", err)
-		return &api.EmptyMessage{}, err
+		return &api.State{}, err
 	}
 	if gameManager == nil {
 		err = extGrpcError(ErrNilGame, fmt.Sprintf(" with id %d: %v", id, err))
 		log.Printf("MakeTurn error: %s", err)
-		return &api.EmptyMessage{}, err
+		return &api.State{}, err
 	}
 
-	err = makeTurn(gameManager, id,
-		&game.TurnData{X: int(in.X), Y: int(in.Y)})
+	state, err := s.makeTurn(gameManager, id,
+		&gi.TurnData{X: int(in.X), Y: int(in.Y)})
 	if err != nil {
 		log.Printf("MakeTurn error: %s", err)
-		return &api.EmptyMessage{}, err
+		return &api.State{}, err
 	}
+
 	log.Printf("gamer with id %d made a turn: %v %v", id, in.X, in.Y)
 
-	return &api.EmptyMessage{}, nil
+	return state, nil
 }
 
 // Release sops the server intity.
@@ -352,35 +364,110 @@ func requisitesFromContext(ctx context.Context) (requisites *interfaces.Requisit
 	return requisites, id, nil
 }
 
-func (s *Server) waitGame(ctx context.Context, id int) error {
+func (s *Server) waitGame(ctx context.Context, id int) (*api.State, error) {
 	gameManager, err := s.gameGeter.GetGame(id)
 	if err != nil {
-		return err
+		return &api.State{}, err
 	}
 	if gameManager == nil {
 		err = extGrpcError(ErrNilGame, fmt.Sprintf(" with id %d: %v", id, err))
-		return err
+		return &api.State{}, err
 	}
 
 	if err := gameManager.WaitBegin(ctx, id); err != nil {
 		//gamer joined a game, so it's must be released.
 		if errl := s.pool.ReleaseGame(id); errl != nil {
 			err = extGrpcError(err, fmt.Sprintf(", gamer with id %d: failed to Release game: %q, after failed game awaiting", id, errl))
-			return err
+			return &api.State{}, err
 		}
-		return err
+		return &api.State{}, err
 	}
-	return nil
+
+	state, err := s.getGameState(gameManager, id)
+	if err != nil {
+		return &api.State{}, err
+	}
+
+	return state, nil
 }
 
-func makeTurn(gm interfaces.GameManager, id int, move *game.TurnData) error {
-	if err := gm.MakeTurn(id, move); err != nil {
+func (s *Server) waitTurn(ctx context.Context, gameManager interfaces.GameManager, id int) (*api.State, error) {
+	if err := gameManager.WaitTurn(ctx, id); err != nil {
+		return &api.State{}, err
+	}
+
+	state, err := s.getGameState(gameManager, id)
+	if err != nil {
+		return &api.State{}, err
+	}
+	return state, nil
+}
+
+func (s *Server) makeTurn(gameManager interfaces.GameManager, id int, move *gi.TurnData) (*api.State, error) {
+	if err := gameManager.MakeTurn(id, move); err != nil {
 		if errors.Is(err, game.ErrWrongTurn) {
 			err = extGrpcError(ErrWrongTurn, fmt.Sprintf(" with id %d: %v", id, err))
-			return err
+			return &api.State{}, err
 		}
 		err = extGrpcError(ErrMakeTurn, fmt.Sprintf(" with id %d: %v", id, err))
-		return err
+		return &api.State{}, err
 	}
-	return nil
+
+	state, err := s.getGameState(gameManager, id)
+	if err != nil {
+		log.Printf("WaitTheTurn error: %s", err)
+		return &api.State{}, err
+	}
+	return state, nil
+}
+
+func (s *Server) getGameState(gameManager interfaces.GameManager, id int) (*api.State, error) {
+	gameState := &api.State{
+		Black: &api.State_ColourState{},
+		White: &api.State_ColourState{},
+	}
+
+	fs, err := gameManager.FieldSize(id)
+	if err != nil {
+		err := extGrpcError(ErrGameState, fmt.Sprintf("user with id %d on FieldSize: %v", id, err))
+		return &api.State{}, err
+	}
+	gameState.Size = int64(fs)
+
+	state, err := gameManager.GameState(id)
+	if err != nil {
+		err := extGrpcError(ErrGameState, fmt.Sprintf("user with id %d on GameState: %v", id, err))
+		return &api.State{}, err
+	}
+
+	gameState.Komi = state.Komi
+	gameState.GameOver = state.GameOver
+	fillForColour(gameState.White, state, gi.White)
+	fillForColour(gameState.Black, state, gi.Black)
+
+	return gameState, nil
+}
+
+func fillForColour(apiState *api.State_ColourState, state *gi.FieldState, colour gi.ChipColour) {
+	apiState.ChipsCaptured = int64(state.ChipsCuptured[colour])
+	apiState.ChipsInCap = int64(state.ChipsInCup[colour])
+	apiState.Scores = state.Scores[colour]
+
+	chipsOnBoard := make([]*api.TurnMessage, len(state.ChipsOnBoard[colour]))
+	for i, pt := range state.ChipsOnBoard[colour] {
+		chipsOnBoard[i] = &api.TurnMessage{
+			X: int64(pt.X),
+			Y: int64(pt.Y),
+		}
+	}
+	apiState.ChipsOnBoard = chipsOnBoard
+
+	pointsUnderControl := make([]*api.TurnMessage, len(state.PointsUnderControl[colour]))
+	for i, pt := range state.PointsUnderControl[colour] {
+		pointsUnderControl[i] = &api.TurnMessage{
+			X: int64(pt.X),
+			Y: int64(pt.Y),
+		}
+	}
+	apiState.PointsUnderControl = pointsUnderControl
 }

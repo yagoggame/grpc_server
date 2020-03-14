@@ -23,6 +23,7 @@ import (
 	"context"
 
 	"github.com/yagoggame/gomaster/game"
+	"github.com/yagoggame/gomaster/game/interfaces"
 )
 
 // Authorizator is the interface that wraps Authorize method
@@ -60,7 +61,7 @@ type Requisites struct {
 type Pooler interface {
 	AddGamer(gamer *game.Gamer) error
 	RmGamer(id int) (gamer *game.Gamer, err error)
-	JoinGame(id int) error
+	JoinGame(id int, size int, komi float64) error
 	ReleaseGame(id int) error
 	GetGamer(id int) (*game.Gamer, error)
 	Release()
@@ -77,7 +78,9 @@ type Pooler interface {
 type GameManager interface {
 	WaitBegin(ctx context.Context, id int) (err error)
 	WaitTurn(ctx context.Context, id int) (err error)
-	MakeTurn(id int, turn *game.TurnData) (err error)
+	MakeTurn(id int, turn *interfaces.TurnData) (err error)
+	FieldSize(id int) (size int, err error)
+	GameState(id int) (state *interfaces.FieldState, err error)
 }
 
 // GameGeter is the interface that wraps the GetGame method.

@@ -25,7 +25,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/yagoggame/api"
 	"github.com/yagoggame/gomaster/game"
+	gi "github.com/yagoggame/gomaster/game/interfaces"
 	"github.com/yagoggame/grpc_server/interfaces"
 	"github.com/yagoggame/grpc_server/interfaces/mocks"
 	"google.golang.org/grpc/metadata"
@@ -117,14 +119,14 @@ func (o *byGamerPtr) String() string {
 	return "has value " + (*o.g).String()
 }
 
-type byTurnDataPtr struct{ m *game.TurnData }
+type byTurnDataPtr struct{ m *gi.TurnData }
 
-func matchByTurnDataPtr(m *game.TurnData) gomock.Matcher {
+func matchByTurnDataPtr(m *gi.TurnData) gomock.Matcher {
 	return &byTurnDataPtr{m}
 }
 
 func (o *byTurnDataPtr) Matches(x interface{}) bool {
-	m2, ok := x.(*game.TurnData)
+	m2, ok := x.(*gi.TurnData)
 	if !ok {
 		return false
 	}
@@ -158,4 +160,41 @@ func launchVariants(t *testing.T, arg launchVariantsArgs) {
 			arg.fnc(t, args)
 		})
 	}
+}
+
+func testGameState(t *testing.T, gameState *api.State, fieldState *gi.FieldState) {
+	if gameState.GetSize() != usualSize ||
+		gameState.GetKomi() != usualKomi ||
+		gameState.GetGameOver() != fieldState.GameOver ||
+		gameState.GetWhite() == nil || gameState.GetBlack() == nil {
+		t.Fatalf("Unexpected game state result:\n%v\nfrom field state:\n%v", gameState, fieldState)
+	}
+	testColour(t, gameState.GetWhite(), fieldState, gi.White)
+	testColour(t, gameState.GetBlack(), fieldState, gi.Black)
+
+}
+
+func testColour(t *testing.T, colourGameState *api.State_ColourState, fieldState *gi.FieldState, colour gi.ChipColour) {
+	if colourGameState.GetChipsCaptured() != int64(fieldState.ChipsCuptured[colour]) ||
+		colourGameState.GetChipsInCap() != int64(fieldState.ChipsInCup[colour]) ||
+		colourGameState.GetScores() != fieldState.Scores[colour] ||
+		!testPtsSlices(colourGameState.GetChipsOnBoard(), fieldState.ChipsOnBoard[colour]) ||
+		!testPtsSlices(colourGameState.GetPointsUnderControl(), fieldState.PointsUnderControl[colour]) {
+		t.Errorf("Unexpected game state on colour %vresult:\n%v\nfrom field state:\n%v",
+			colour, colourGameState, fieldState)
+	}
+}
+
+func testPtsSlices(points1 []*api.TurnMessage, points2 []*gi.TurnData) bool {
+	if len(points1) != len(points2) {
+		return false
+	}
+
+	for i := range points1 {
+		if points1[i].GetX() != int64(points2[i].X) ||
+			points1[i].GetY() != int64(points2[i].Y) {
+			return false
+		}
+	}
+	return true
 }

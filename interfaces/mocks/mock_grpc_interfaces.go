@@ -10,7 +10,8 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	game "github.com/yagoggame/gomaster/game"
-	interfaces "github.com/yagoggame/grpc_server/interfaces"
+	interfaces "github.com/yagoggame/gomaster/game/interfaces"
+	interfaces0 "github.com/yagoggame/grpc_server/interfaces"
 )
 
 // MockAuthorizator is a mock of Authorizator interface
@@ -37,7 +38,7 @@ func (m *MockAuthorizator) EXPECT() *MockAuthorizatorMockRecorder {
 }
 
 // Authorize mocks base method
-func (m *MockAuthorizator) Authorize(arg0 *interfaces.Requisites) (int, error) {
+func (m *MockAuthorizator) Authorize(arg0 *interfaces0.Requisites) (int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Authorize", arg0)
 	ret0, _ := ret[0].(int)
@@ -52,7 +53,7 @@ func (mr *MockAuthorizatorMockRecorder) Authorize(arg0 interface{}) *gomock.Call
 }
 
 // ChangeRequisites mocks base method
-func (m *MockAuthorizator) ChangeRequisites(arg0, arg1 *interfaces.Requisites) error {
+func (m *MockAuthorizator) ChangeRequisites(arg0, arg1 *interfaces0.Requisites) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ChangeRequisites", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -66,7 +67,7 @@ func (mr *MockAuthorizatorMockRecorder) ChangeRequisites(arg0, arg1 interface{})
 }
 
 // Register mocks base method
-func (m *MockAuthorizator) Register(arg0 *interfaces.Requisites) error {
+func (m *MockAuthorizator) Register(arg0 *interfaces0.Requisites) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Register", arg0)
 	ret0, _ := ret[0].(error)
@@ -80,7 +81,7 @@ func (mr *MockAuthorizatorMockRecorder) Register(arg0 interface{}) *gomock.Call 
 }
 
 // Remove mocks base method
-func (m *MockAuthorizator) Remove(arg0 *interfaces.Requisites) error {
+func (m *MockAuthorizator) Remove(arg0 *interfaces0.Requisites) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Remove", arg0)
 	ret0, _ := ret[0].(error)
@@ -146,17 +147,17 @@ func (mr *MockPoolerMockRecorder) GetGamer(arg0 interface{}) *gomock.Call {
 }
 
 // JoinGame mocks base method
-func (m *MockPooler) JoinGame(arg0 int) error {
+func (m *MockPooler) JoinGame(arg0, arg1 int, arg2 float64) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "JoinGame", arg0)
+	ret := m.ctrl.Call(m, "JoinGame", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // JoinGame indicates an expected call of JoinGame
-func (mr *MockPoolerMockRecorder) JoinGame(arg0 interface{}) *gomock.Call {
+func (mr *MockPoolerMockRecorder) JoinGame(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "JoinGame", reflect.TypeOf((*MockPooler)(nil).JoinGame), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "JoinGame", reflect.TypeOf((*MockPooler)(nil).JoinGame), arg0, arg1, arg2)
 }
 
 // Release mocks base method
@@ -223,8 +224,38 @@ func (m *MockGameManager) EXPECT() *MockGameManagerMockRecorder {
 	return m.recorder
 }
 
+// FieldSize mocks base method
+func (m *MockGameManager) FieldSize(arg0 int) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FieldSize", arg0)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FieldSize indicates an expected call of FieldSize
+func (mr *MockGameManagerMockRecorder) FieldSize(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FieldSize", reflect.TypeOf((*MockGameManager)(nil).FieldSize), arg0)
+}
+
+// GameState mocks base method
+func (m *MockGameManager) GameState(arg0 int) (*interfaces.FieldState, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GameState", arg0)
+	ret0, _ := ret[0].(*interfaces.FieldState)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GameState indicates an expected call of GameState
+func (mr *MockGameManagerMockRecorder) GameState(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GameState", reflect.TypeOf((*MockGameManager)(nil).GameState), arg0)
+}
+
 // MakeTurn mocks base method
-func (m *MockGameManager) MakeTurn(arg0 int, arg1 *game.TurnData) error {
+func (m *MockGameManager) MakeTurn(arg0 int, arg1 *interfaces.TurnData) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MakeTurn", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -289,10 +320,10 @@ func (m *MockGameGeter) EXPECT() *MockGameGeterMockRecorder {
 }
 
 // GetGame mocks base method
-func (m *MockGameGeter) GetGame(arg0 int) (interfaces.GameManager, error) {
+func (m *MockGameGeter) GetGame(arg0 int) (interfaces0.GameManager, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetGame", arg0)
-	ret0, _ := ret[0].(interfaces.GameManager)
+	ret0, _ := ret[0].(interfaces0.GameManager)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
