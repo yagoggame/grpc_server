@@ -10,7 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	game "github.com/yagoggame/gomaster/game"
-	interfaces "github.com/yagoggame/gomaster/game/interfaces"
+	interfaces "github.com/yagoggame/gomaster/game/igame"
 	interfaces0 "github.com/yagoggame/grpc_server/interfaces"
 )
 

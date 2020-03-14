@@ -25,7 +25,7 @@ import (
 
 	"github.com/yagoggame/api"
 	"github.com/yagoggame/gomaster/game"
-	gi "github.com/yagoggame/gomaster/game/interfaces"
+	"github.com/yagoggame/gomaster/game/igame"
 	"github.com/yagoggame/grpc_server/interfaces"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -291,7 +291,7 @@ func (s *Server) MakeTurn(ctx context.Context, in *api.TurnMessage) (*api.State,
 	}
 
 	state, err := s.makeTurn(gameManager, id,
-		&gi.TurnData{X: int(in.X), Y: int(in.Y)})
+		&igame.TurnData{X: int(in.X), Y: int(in.Y)})
 	if err != nil {
 		log.Printf("MakeTurn error: %s", err)
 		return &api.State{}, err
@@ -403,7 +403,7 @@ func (s *Server) waitTurn(ctx context.Context, gameManager interfaces.GameManage
 	return state, nil
 }
 
-func (s *Server) makeTurn(gameManager interfaces.GameManager, id int, move *gi.TurnData) (*api.State, error) {
+func (s *Server) makeTurn(gameManager interfaces.GameManager, id int, move *igame.TurnData) (*api.State, error) {
 	if err := gameManager.MakeTurn(id, move); err != nil {
 		if errors.Is(err, game.ErrWrongTurn) {
 			err = extGrpcError(ErrWrongTurn, fmt.Sprintf(" with id %d: %v", id, err))
@@ -442,13 +442,13 @@ func (s *Server) getGameState(gameManager interfaces.GameManager, id int) (*api.
 
 	gameState.Komi = state.Komi
 	gameState.GameOver = state.GameOver
-	fillForColour(gameState.White, state, gi.White)
-	fillForColour(gameState.Black, state, gi.Black)
+	fillForColour(gameState.White, state, igame.White)
+	fillForColour(gameState.Black, state, igame.Black)
 
 	return gameState, nil
 }
 
-func fillForColour(apiState *api.State_ColourState, state *gi.FieldState, colour gi.ChipColour) {
+func fillForColour(apiState *api.State_ColourState, state *igame.FieldState, colour igame.ChipColour) {
 	apiState.ChipsCaptured = int64(state.ChipsCuptured[colour])
 	apiState.ChipsInCap = int64(state.ChipsInCup[colour])
 	apiState.Scores = state.Scores[colour]

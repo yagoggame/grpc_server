@@ -26,7 +26,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/yagoggame/api"
 	"github.com/yagoggame/gomaster/game"
-	gi "github.com/yagoggame/gomaster/game/interfaces"
+	"github.com/yagoggame/gomaster/game/igame"
 	"github.com/yagoggame/grpc_server/interfaces"
 	"github.com/yagoggame/grpc_server/interfaces/mocks"
 	"google.golang.org/grpc/codes"
@@ -397,7 +397,7 @@ func performTestMakeTurn(t *testing.T, args singleTestArgs) {
 	if !args.nilManager {
 		gm = args.gameManager
 	}
-	move := gi.TurnData{
+	move := igame.TurnData{
 		X: int(args.test.move.X),
 		Y: int(args.test.move.Y),
 	}
@@ -431,26 +431,26 @@ func performTestMakeTurn(t *testing.T, args singleTestArgs) {
 	}
 }
 
-func genFieldState() *gi.FieldState {
-	state := &gi.FieldState{
-		ChipsInCup:         make(map[gi.ChipColour]int, 2),
-		ChipsCuptured:      make(map[gi.ChipColour]int, 2),
-		PointsUnderControl: make(map[gi.ChipColour][]*gi.TurnData, 2),
-		Scores:             make(map[gi.ChipColour]float64, 2),
-		ChipsOnBoard:       make(map[gi.ChipColour][]*gi.TurnData, 2),
+func genFieldState() *igame.FieldState {
+	state := &igame.FieldState{
+		ChipsInCup:         make(map[igame.ChipColour]int, 2),
+		ChipsCuptured:      make(map[igame.ChipColour]int, 2),
+		PointsUnderControl: make(map[igame.ChipColour][]*igame.TurnData, 2),
+		Scores:             make(map[igame.ChipColour]float64, 2),
+		ChipsOnBoard:       make(map[igame.ChipColour][]*igame.TurnData, 2),
 	}
 	state.GameOver = true
 	state.Komi = usualKomi
 
-	colours := []gi.ChipColour{gi.White, gi.Black}
+	colours := []igame.ChipColour{igame.White, igame.Black}
 
 	for _, colour := range colours {
 		state.ChipsInCup[colour] = 2
-		state.ChipsOnBoard[colour] = []*gi.TurnData{&gi.TurnData{X: 10, Y: 11}}
+		state.ChipsOnBoard[colour] = []*igame.TurnData{&igame.TurnData{X: 10, Y: 11}}
 		state.ChipsCuptured[colour] = 3
-		state.PointsUnderControl[colour] = []*gi.TurnData{
-			&gi.TurnData{X: 12, Y: 13},
-			&gi.TurnData{X: 14, Y: 15}}
+		state.PointsUnderControl[colour] = []*igame.TurnData{
+			&igame.TurnData{X: 12, Y: 13},
+			&igame.TurnData{X: 14, Y: 15}}
 		state.Scores[colour] = float64(4)
 	}
 	return state
