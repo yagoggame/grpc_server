@@ -19,12 +19,16 @@ package postgres
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 
 	// registers pgx postgresSQL driver
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/yagoggame/grpc_server/interfaces"
 )
+
+// ErrWrongAffectedRows occures if some request affects on unexpected number of rows
+var ErrWrongAffectedRows = errors.New("unexpected number of rows affected")
 
 // ConnectionData struct stores all database requisites
 type ConnectionData struct {
@@ -85,7 +89,15 @@ func (authorizator *Authorizator) Authorize(requisites *interfaces.Requisites) (
 
 // Register attempts to register a new user and returns the id if success
 func (authorizator *Authorizator) Register(requisites *interfaces.Requisites) (id int, err error) {
-	err = authorizator.db.QueryRow("select id from users where name = ? limit 1", requisites.Login).Scan(&id)
+	tx, err := authorizator.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer func() {
+		err = closeTransaction(tx, err)
+	}()
+
+	err = tx.QueryRow("select id from users where name = ? limit 1", requisites.Login).Scan(&id)
 	if err != sql.ErrNoRows {
 		if err != nil {
 			return 0, err
@@ -93,5 +105,33 @@ func (authorizator *Authorizator) Register(requisites *interfaces.Requisites) (i
 		return 0, interfaces.ErrLoginOccupied
 	}
 
+	result, err := tx.Exec("INSERT INTO users (id,username,password) VALUES(DEFAULT,?,?)", requisites.Login, requisites.Password)
+	if err != nil {
+		return 0, err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	if rows != 1 {
+		return 0, fmt.Errorf("%w: %d", ErrWrongAffectedRows, rows)
+	}
+
 	return 1, nil
+}
+
+func closeTransaction(tx *sql.Tx, err error) error {
+	if err != nil {
+		rbErr := tx.Rollback()
+		if rbErr != nil {
+			err = fmt.Errorf("%w: %q", err, rbErr)
+		}
+		return err
+	}
+
+	cmtErr := tx.Commit()
+	if cmtErr != nil {
+		err = cmtErr
+	}
+	return err
 }
