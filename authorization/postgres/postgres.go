@@ -82,3 +82,16 @@ func (authorizator *Authorizator) Authorize(requisites *interfaces.Requisites) (
 
 	return id, nil
 }
+
+// Register attempts to register a new user and returns the id if success
+func (authorizator *Authorizator) Register(requisites *interfaces.Requisites) (id int, err error) {
+	err = authorizator.db.QueryRow("select id from users where name = ? limit 1", requisites.Login).Scan(&id)
+	if err != sql.ErrNoRows {
+		if err != nil {
+			return 0, err
+		}
+		return 0, interfaces.ErrLoginOccupied
+	}
+
+	return 1, nil
+}
