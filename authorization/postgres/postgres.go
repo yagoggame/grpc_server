@@ -27,8 +27,12 @@ import (
 	"github.com/yagoggame/grpc_server/interfaces"
 )
 
-// ErrWrongAffectedRows occures if some request affects on unexpected number of rows
-var ErrWrongAffectedRows = errors.New("unexpected number of rows affected")
+var (
+	// ErrWrongAffectedRows occures if some request affects on unexpected number of rows
+	ErrWrongAffectedRows = errors.New("unexpected number of rows affected")
+	// ErrModificationResult occures when request of modification produses strange result
+	ErrModificationResult = errors.New("data changing produsec strange result")
+)
 
 // ConnectionData struct stores all database requisites
 type ConnectionData struct {
@@ -73,15 +77,8 @@ func (authorizator *Authorizator) Authorize(requisites *interfaces.Requisites) (
 	var password string
 	err = authorizator.db.QueryRow("select id, password from users where name = ? limit 1", requisites.Login).Scan(&id, &password)
 
-	if err == sql.ErrNoRows {
-		return 0, interfaces.ErrLogin
-	}
-	if err != nil {
+	if err := checkAuthorization(password, requisites.Password, err); err != nil {
 		return 0, err
-	}
-
-	if requisites.Password != password {
-		return 0, interfaces.ErrPassword
 	}
 
 	return id, nil
@@ -105,20 +102,41 @@ func (authorizator *Authorizator) Register(requisites *interfaces.Requisites) (i
 		return 0, interfaces.ErrLoginOccupied
 	}
 
-	result, err := tx.Exec("INSERT INTO users (id,username,password) VALUES(DEFAULT,?,?)", requisites.Login, requisites.Password)
-	if err != nil {
+	err = tx.QueryRow("INSERT INTO users (id,username,password) VALUES(DEFAULT,?,?) RETURNING id",
+		requisites.Login, requisites.Password).Scan(&id)
+	if err := checkModification(id, err); err != nil {
 		return 0, err
-	}
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return 0, err
-	}
-	if rows != 1 {
-		return 0, fmt.Errorf("%w: %d", ErrWrongAffectedRows, rows)
 	}
 
-	return 1, nil
+	return id, nil
 }
+
+// // Remove attempts to remove a user and returns the id if success
+// func (authorizator *Authorizator) Remove(requisites *interfaces.Requisites) (id int, err error) {
+// 	tx, err := authorizator.db.Begin()
+// 	if err != nil {
+// 		return 0, err
+// 	}
+// 	defer func() {
+// 		err = closeTransaction(tx, err)
+// 	}()
+
+// 	var password string
+// 	err = tx.QueryRow("select id, password from users where name = ? limit 1", requisites.Login).Scan(&id, &password)
+// 	if err := checkAuthorization(password, requisites.Password, err); err != nil {
+// 		return 0, err
+// 	}
+
+// 	result, err := tx.Exec("DELETE FROM users (id,username,password) VALUES(DEFAULT,?,?)", requisites.Login, requisites.Password)
+
+// 	err = tx.QueryRow("DELETE FROM users (id,username,password) VALUES(DEFAULT,?,?) RETURNING id",
+// 		requisites.Login, requisites.Password).Scan(&id)
+// 	if err := checkModification(id, err); err != nil {
+// 		return 0, err
+// 	}
+
+// 	return 0, nil
+// }
 
 func closeTransaction(tx *sql.Tx, err error) error {
 	if err != nil {
@@ -134,4 +152,31 @@ func closeTransaction(tx *sql.Tx, err error) error {
 		err = cmtErr
 	}
 	return err
+}
+
+func checkAuthorization(passwordIn, passwordRef string, err error) error {
+	if err == sql.ErrNoRows {
+		return interfaces.ErrLogin
+	}
+	if err != nil {
+		return err
+	}
+
+	if passwordIn != passwordRef {
+		return interfaces.ErrPassword
+	}
+	return nil
+}
+
+func checkModification(id int, err error) error {
+	if err == sql.ErrNoRows {
+		return fmt.Errorf("%w: no rows affected", ErrModificationResult)
+	}
+	if err != nil {
+		return err
+	}
+	if id < 1 {
+		return fmt.Errorf("%w: affected row with strange id %d", ErrModificationResult, id)
+	}
+	return nil
 }

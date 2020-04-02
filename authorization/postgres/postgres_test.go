@@ -39,7 +39,7 @@ type commonTestCase struct {
 	want           iderr
 	retRowsSel1    []*sqlmock.Rows
 	retErrSel1     error
-	retResultExec2 sql.Result
+	retRowsSel2    []*sqlmock.Rows
 	retErrSel2     error
 }
 
@@ -112,40 +112,42 @@ var registerTests = []*commonTestCase{
 				AddRow(1)},
 	},
 	&commonTestCase{
-		name: "some exec error",
+		name: "some query2 error",
 		userRequisites: &interfaces.Requisites{
 			Login:    "Joe",
 			Password: "aaa",
 		},
-		retErrSel1:     sql.ErrNoRows,
-		retRowsSel1:    []*sqlmock.Rows{},
-		retErrSel2:     sql.ErrTxDone,
-		retResultExec2: sqlmock.NewResult(1, 1),
-		want:           iderr{id: 0, err: sql.ErrTxDone},
+		retErrSel1:  sql.ErrNoRows,
+		retRowsSel1: []*sqlmock.Rows{},
+		retErrSel2:  sql.ErrTxDone,
+		retRowsSel2: []*sqlmock.Rows{},
+		want:        iderr{id: 0, err: sql.ErrTxDone},
 	},
 	&commonTestCase{
-		name: "exec result error",
+		name: "not registred",
 		userRequisites: &interfaces.Requisites{
 			Login:    "Joe",
 			Password: "aaa",
 		},
-		retErrSel1:     sql.ErrNoRows,
-		retRowsSel1:    []*sqlmock.Rows{},
-		retErrSel2:     nil,
-		retResultExec2: sqlmock.NewErrorResult(errSome),
-		want:           iderr{id: 0, err: errSome},
+		retErrSel1:  sql.ErrNoRows,
+		retRowsSel1: []*sqlmock.Rows{},
+		retErrSel2:  sql.ErrNoRows,
+		retRowsSel2: []*sqlmock.Rows{},
+		want:        iderr{id: 0, err: postgres.ErrModificationResult},
 	},
 	&commonTestCase{
-		name: "exec result rows",
+		name: "strange id",
 		userRequisites: &interfaces.Requisites{
 			Login:    "Joe",
 			Password: "aaa",
 		},
-		retErrSel1:     sql.ErrNoRows,
-		retRowsSel1:    []*sqlmock.Rows{},
-		retErrSel2:     nil,
-		retResultExec2: sqlmock.NewResult(1, 0),
-		want:           iderr{id: 0, err: postgres.ErrWrongAffectedRows},
+		retErrSel1:  sql.ErrNoRows,
+		retRowsSel1: []*sqlmock.Rows{},
+		retErrSel2:  nil,
+		retRowsSel2: []*sqlmock.Rows{
+			sqlmock.NewRows([]string{"id"}).
+				AddRow(0)},
+		want: iderr{id: 0, err: postgres.ErrModificationResult},
 	},
 	&commonTestCase{
 		name: "success",
@@ -153,13 +155,49 @@ var registerTests = []*commonTestCase{
 			Login:    "Joe",
 			Password: "aaa",
 		},
-		retErrSel1:     sql.ErrNoRows,
-		retRowsSel1:    []*sqlmock.Rows{},
-		retErrSel2:     nil,
-		retResultExec2: sqlmock.NewResult(1, 1),
-		want:           iderr{id: 1, err: nil},
+		retErrSel1:  sql.ErrNoRows,
+		retRowsSel1: []*sqlmock.Rows{},
+		retErrSel2:  nil,
+		retRowsSel2: []*sqlmock.Rows{
+			sqlmock.NewRows([]string{"id"}).
+				AddRow(1)},
+		want: iderr{id: 1, err: nil},
 	},
 }
+
+// var removeTests = []*commonTestCase{
+// 	&commonTestCase{
+// 		name: "some query error",
+// 		userRequisites: &interfaces.Requisites{
+// 			Login:    "Joe",
+// 			Password: "aaa",
+// 		},
+// 		retErrSel1:  sql.ErrTxDone,
+// 		retRowsSel1: []*sqlmock.Rows{},
+// 		want:        iderr{id: 0, err: sql.ErrTxDone},
+// 	},
+// 	&commonTestCase{
+// 		name: "login not found",
+// 		userRequisites: &interfaces.Requisites{
+// 			Login:    "Joe",
+// 			Password: "aaa",
+// 		},
+// 		retErrSel1:  sql.ErrNoRows,
+// 		retRowsSel1: []*sqlmock.Rows{},
+// 		want:        iderr{id: 0, err: interfaces.ErrLogin},
+// 	},
+// 	&commonTestCase{
+// 		name: "wrong password",
+// 		userRequisites: &interfaces.Requisites{
+// 			Login:    "Joe",
+// 			Password: "aaa",
+// 		},
+// 		retRowsSel1: []*sqlmock.Rows{
+// 			sqlmock.NewRows([]string{"id", "password"}).
+// 				AddRow(1, "bbb")},
+// 		want: iderr{id: 0, err: interfaces.ErrPassword},
+// 	},
+// }
 
 func TestNewPgx(t *testing.T) {
 	conData := &postgres.ConnectionData{
@@ -234,9 +272,9 @@ func makeRegisterExpectations(mock sqlmock.Sqlmock, test *commonTestCase) {
 		WillReturnRows(test.retRowsSel1...).
 		WillReturnError(test.retErrSel1)
 	if test.retErrSel1 == sql.ErrNoRows {
-		mock.ExpectExec("INSERT INTO users \\(id,username,password\\) VALUES\\(DEFAULT,\\?,\\?\\)").
+		mock.ExpectQuery("INSERT INTO users \\(id,username,password\\) VALUES\\(DEFAULT,\\?,\\?\\)").
 			WithArgs(test.userRequisites.Login, test.userRequisites.Password).
-			WillReturnResult(test.retResultExec2).
+			WillReturnRows(test.retRowsSel2...).
 			WillReturnError(test.retErrSel2)
 	}
 	if test.name == "success" {
@@ -245,6 +283,47 @@ func makeRegisterExpectations(mock sqlmock.Sqlmock, test *commonTestCase) {
 		mock.ExpectRollback()
 	}
 }
+
+// func TestRemove(t *testing.T) {
+// 	for _, test := range removeTests {
+// 		t.Run(test.name, func(t *testing.T) {
+// 			performRemoveTest(t, test)
+// 		})
+// 	}
+// }
+
+// func performRemoveTest(t *testing.T, test *commonTestCase) {
+// 	authorizator, mock := initMock(t)
+// 	defer authorizator.Close()
+
+// 	makeRemoveExpectations(mock, test)
+
+// 	id, err := authorizator.Remove(test.userRequisites)
+
+// 	testIDErr(t, test.want, iderr{id: id, err: err})
+// 	if err := mock.ExpectationsWereMet(); err != nil {
+// 		t.Errorf("there were unfulfilled expectations: %s", err)
+// 	}
+// }
+
+// func makeRemoveExpectations(mock sqlmock.Sqlmock, test *commonTestCase) {
+// 	mock.ExpectBegin()
+// 	mock.ExpectQuery("select id, password from users where name = \\? limit 1").
+// 		WithArgs(test.userRequisites.Login).
+// 		WillReturnRows(test.retRowsSel1...).
+// 		WillReturnError(test.retErrSel1)
+// 	// if test.retErrSel1 == sql.ErrNoRows {
+// 	// 	mock.ExpectExec("INSERT INTO users \\(id,username,password\\) VALUES\\(DEFAULT,\\?,\\?\\)").
+// 	// 		WithArgs(test.userRequisites.Login, test.userRequisites.Password).
+// 	// 		WillReturnResult(test.retResultExec2).
+// 	// 		WillReturnError(test.retErrSel2)
+// 	// }
+// 	if test.name == "success" {
+// 		mock.ExpectCommit()
+// 	} else {
+// 		mock.ExpectRollback()
+// 	}
+// }
 
 func initMock(t *testing.T) (*postgres.Authorizator, sqlmock.Sqlmock) {
 	db, mock, err := sqlmock.New()
