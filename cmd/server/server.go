@@ -42,6 +42,11 @@ type IniDataContainer struct {
 	KeyFile    string
 	Authorizer string
 	Filename   string
+	DBHost     string
+	DBPort     int
+	DBName     string
+	DBUser     string
+	DBPassword string
 }
 
 // private type for Context keys.
