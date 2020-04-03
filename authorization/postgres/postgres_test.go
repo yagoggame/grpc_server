@@ -344,7 +344,7 @@ func performAuthorizeTest(t *testing.T, test *commonTestCase) {
 	authorizator, mock := initMock(t)
 	defer authorizator.Close()
 
-	mock.ExpectQuery("select id, password from users where username = \\? limit 1").
+	mock.ExpectQuery("SELECT id, password FROM users WHERE username = \\$1 LIMIT 1").
 		WithArgs(test.userRequisites.Login).
 		WillReturnRows(test.retRowsSel1...).
 		WillReturnError(test.retErrSel1)
@@ -371,9 +371,9 @@ func performRegisterTest(t *testing.T, test *commonTestCase) {
 
 	makeRegisterExpectations(mock, test)
 
-	id, err := authorizator.Register(test.userRequisites)
+	err := authorizator.Register(test.userRequisites)
 
-	testIDErr(t, test.want, iderr{id: id, err: err})
+	testErr(t, test.want.err, err)
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
@@ -381,12 +381,12 @@ func performRegisterTest(t *testing.T, test *commonTestCase) {
 
 func makeRegisterExpectations(mock sqlmock.Sqlmock, test *commonTestCase) {
 	mock.ExpectBegin()
-	mock.ExpectQuery("select id from users where username = \\? limit 1").
+	mock.ExpectQuery("SELECT id FROM users WHERE username = \\$1 LIMIT 1").
 		WithArgs(test.userRequisites.Login).
 		WillReturnRows(test.retRowsSel1...).
 		WillReturnError(test.retErrSel1)
 	if test.retErrSel1 == sql.ErrNoRows {
-		mock.ExpectQuery("INSERT INTO users \\(id,username,password\\) VALUES\\(DEFAULT,\\?,\\?\\)").
+		mock.ExpectQuery("INSERT INTO users \\(id,username,password\\) VALUES\\(DEFAULT,\\$1,\\$2\\)").
 			WithArgs(test.userRequisites.Login, test.userRequisites.Password).
 			WillReturnRows(test.retRowsSel2...).
 			WillReturnError(test.retErrSel2)
@@ -412,9 +412,9 @@ func performRemoveTest(t *testing.T, test *commonTestCase) {
 
 	makeRemoveExpectations(mock, test)
 
-	id, err := authorizator.Remove(test.userRequisites)
+	err := authorizator.Remove(test.userRequisites)
 
-	testIDErr(t, test.want, iderr{id: id, err: err})
+	testErr(t, test.want.err, err)
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
@@ -422,12 +422,12 @@ func performRemoveTest(t *testing.T, test *commonTestCase) {
 
 func makeRemoveExpectations(mock sqlmock.Sqlmock, test *commonTestCase) {
 	mock.ExpectBegin()
-	mock.ExpectQuery("select id, password from users where username = \\? limit 1").
+	mock.ExpectQuery("SELECT id, password FROM users WHERE username = \\$1 LIMIT 1").
 		WithArgs(test.userRequisites.Login).
 		WillReturnRows(test.retRowsSel1...).
 		WillReturnError(test.retErrSel1)
 	if test.retErrSel1 == nil && test.name != "wrong password" {
-		mock.ExpectExec("DELETE FROM users WHERE id=\\?").
+		mock.ExpectExec("DELETE FROM users WHERE id=\\$1").
 			WithArgs(test.returnedID).
 			WillReturnResult(test.retResult2).
 			WillReturnError(test.retErrSel2)
@@ -464,13 +464,13 @@ func performChangeRequisitesTest(t *testing.T, test *commonTestCase) {
 func makeChangeRequisitesExpectations(mock sqlmock.Sqlmock, test *commonTestCase) {
 	mock.ExpectBegin()
 
-	mock.ExpectQuery("select id, username, password from users where username IN \\(\\?,\\?\\)").
+	mock.ExpectQuery("SELECT id, username, password FROM users WHERE username IN \\(\\$1,\\$2\\)").
 		WithArgs(test.userRequisites.Login, test.newUserRequisites.Login).
 		WillReturnRows(test.retRowsSel1...).
 		WillReturnError(test.retErrSel1)
 
 	if test.retErrSel1 == nil && test.name != "wrong password" && test.name != "login occupied" {
-		mock.ExpectExec("UPDATE users SET username=\\?,password=\\? WHERE id=\\?").
+		mock.ExpectExec("UPDATE users SET username=\\$1,password=\\$2 WHERE id=\\$3").
 			WithArgs(test.newUserRequisites.Login, test.newUserRequisites.Password, test.returnedID).
 			WillReturnResult(test.retResult2).
 			WillReturnError(test.retErrSel2)
