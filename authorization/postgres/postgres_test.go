@@ -33,131 +33,119 @@ type iderr struct {
 
 var errSome = errors.New("some error")
 
+var (
+	joe = &interfaces.Requisites{
+		Login:    "Joe",
+		Password: "aaa",
+	}
+	joePas = &interfaces.Requisites{
+		Login:    "Joe",
+		Password: "bbb",
+	}
+	nick = &interfaces.Requisites{
+		Login:    "Nick",
+		Password: "bbb",
+	}
+)
+
 type commonTestCase struct {
-	name           string
-	userRequisites *interfaces.Requisites
-	want           iderr
-	retRowsSel1    []*sqlmock.Rows
-	retErrSel1     error
-	retRowsSel2    []*sqlmock.Rows
-	retErrSel2     error
+	name              string
+	userRequisites    *interfaces.Requisites
+	newUserRequisites *interfaces.Requisites
+	want              iderr
+	retRowsSel1       []*sqlmock.Rows
+	retErrSel1        error
+	retRowsSel2       []*sqlmock.Rows
+	retErrSel2        error
+	retResult2        sql.Result
+	returnedID        int
 }
 
 var authorizeTests = []*commonTestCase{
 	&commonTestCase{
-		name: "authorized user",
-		userRequisites: &interfaces.Requisites{
-			Login:    "Joe",
-			Password: "aaa",
-		},
-		want: iderr{id: 1, err: nil},
+		name:           "authorized user",
+		userRequisites: joe,
+		want:           iderr{id: 1, err: nil},
 		retRowsSel1: []*sqlmock.Rows{
 			sqlmock.NewRows([]string{"id", "password"}).
-				AddRow(1, "aaa")},
+				AddRow(1, joe.Password)},
 	},
 	&commonTestCase{
-		name: "wrong password",
-		userRequisites: &interfaces.Requisites{
-			Login:    "Joe",
-			Password: "aaa",
-		},
-		want: iderr{id: 0, err: interfaces.ErrPassword},
+		name:           "wrong password",
+		userRequisites: joe,
+		want:           iderr{id: 0, err: interfaces.ErrPassword},
 		retRowsSel1: []*sqlmock.Rows{
 			sqlmock.NewRows([]string{"id", "password"}).
-				AddRow(1, "bbb")},
+				AddRow(1, joe.Password+"FFF")},
 	},
 	&commonTestCase{
-		name: "login not found",
-		userRequisites: &interfaces.Requisites{
-			Login:    "Joe",
-			Password: "aaa",
-		},
-		retErrSel1:  sql.ErrNoRows,
-		want:        iderr{id: 0, err: interfaces.ErrLogin},
-		retRowsSel1: []*sqlmock.Rows{},
+		name:           "login not found",
+		userRequisites: joe,
+		retErrSel1:     sql.ErrNoRows,
+		want:           iderr{id: 0, err: interfaces.ErrLogin},
+		retRowsSel1:    []*sqlmock.Rows{},
 	},
 	&commonTestCase{
-		name: "some request error",
-		userRequisites: &interfaces.Requisites{
-			Login:    "Joe",
-			Password: "aaa",
-		},
-		retErrSel1:  sql.ErrTxDone,
-		want:        iderr{id: 0, err: sql.ErrTxDone},
-		retRowsSel1: []*sqlmock.Rows{},
+		name:           "some request error",
+		userRequisites: joe,
+		retErrSel1:     sql.ErrTxDone,
+		want:           iderr{id: 0, err: sql.ErrTxDone},
+		retRowsSel1:    []*sqlmock.Rows{},
 	},
 }
 
 var registerTests = []*commonTestCase{
 	&commonTestCase{
-		name: "some query error",
-		userRequisites: &interfaces.Requisites{
-			Login:    "Joe",
-			Password: "aaa",
-		},
-		retErrSel1:  sql.ErrTxDone,
-		want:        iderr{id: 0, err: sql.ErrTxDone},
-		retRowsSel1: []*sqlmock.Rows{},
+		name:           "some query error",
+		userRequisites: joe,
+		retErrSel1:     sql.ErrTxDone,
+		want:           iderr{id: 0, err: sql.ErrTxDone},
+		retRowsSel1:    []*sqlmock.Rows{},
 	},
 	&commonTestCase{
-		name: "login occupied",
-		userRequisites: &interfaces.Requisites{
-			Login:    "Joe",
-			Password: "aaa",
-		},
-		retErrSel1: nil,
-		want:       iderr{id: 0, err: interfaces.ErrLoginOccupied},
+		name:           "login occupied",
+		userRequisites: joe,
+		retErrSel1:     nil,
+		want:           iderr{id: 0, err: interfaces.ErrLoginOccupied},
 		retRowsSel1: []*sqlmock.Rows{
 			sqlmock.NewRows([]string{"id"}).
 				AddRow(1)},
 	},
 	&commonTestCase{
-		name: "some query2 error",
-		userRequisites: &interfaces.Requisites{
-			Login:    "Joe",
-			Password: "aaa",
-		},
-		retErrSel1:  sql.ErrNoRows,
-		retRowsSel1: []*sqlmock.Rows{},
-		retErrSel2:  sql.ErrTxDone,
-		retRowsSel2: []*sqlmock.Rows{},
-		want:        iderr{id: 0, err: sql.ErrTxDone},
+		name:           "some query2 error",
+		userRequisites: joe,
+		retErrSel1:     sql.ErrNoRows,
+		retRowsSel1:    []*sqlmock.Rows{},
+		retErrSel2:     sql.ErrTxDone,
+		retRowsSel2:    []*sqlmock.Rows{},
+		want:           iderr{id: 0, err: sql.ErrTxDone},
 	},
 	&commonTestCase{
-		name: "not registred",
-		userRequisites: &interfaces.Requisites{
-			Login:    "Joe",
-			Password: "aaa",
-		},
-		retErrSel1:  sql.ErrNoRows,
-		retRowsSel1: []*sqlmock.Rows{},
-		retErrSel2:  sql.ErrNoRows,
-		retRowsSel2: []*sqlmock.Rows{},
-		want:        iderr{id: 0, err: postgres.ErrModificationResult},
+		name:           "not registred",
+		userRequisites: joe,
+		retErrSel1:     sql.ErrNoRows,
+		retRowsSel1:    []*sqlmock.Rows{},
+		retErrSel2:     sql.ErrNoRows,
+		retRowsSel2:    []*sqlmock.Rows{},
+		want:           iderr{id: 0, err: postgres.ErrModificationResult},
 	},
 	&commonTestCase{
-		name: "strange id",
-		userRequisites: &interfaces.Requisites{
-			Login:    "Joe",
-			Password: "aaa",
-		},
-		retErrSel1:  sql.ErrNoRows,
-		retRowsSel1: []*sqlmock.Rows{},
-		retErrSel2:  nil,
+		name:           "strange id",
+		userRequisites: joe,
+		retErrSel1:     sql.ErrNoRows,
+		retRowsSel1:    []*sqlmock.Rows{},
+		retErrSel2:     nil,
 		retRowsSel2: []*sqlmock.Rows{
 			sqlmock.NewRows([]string{"id"}).
 				AddRow(0)},
 		want: iderr{id: 0, err: postgres.ErrModificationResult},
 	},
 	&commonTestCase{
-		name: "success",
-		userRequisites: &interfaces.Requisites{
-			Login:    "Joe",
-			Password: "aaa",
-		},
-		retErrSel1:  sql.ErrNoRows,
-		retRowsSel1: []*sqlmock.Rows{},
-		retErrSel2:  nil,
+		name:           "success",
+		userRequisites: joe,
+		retErrSel1:     sql.ErrNoRows,
+		retRowsSel1:    []*sqlmock.Rows{},
+		retErrSel2:     nil,
 		retRowsSel2: []*sqlmock.Rows{
 			sqlmock.NewRows([]string{"id"}).
 				AddRow(1)},
@@ -165,39 +153,165 @@ var registerTests = []*commonTestCase{
 	},
 }
 
-// var removeTests = []*commonTestCase{
-// 	&commonTestCase{
-// 		name: "some query error",
-// 		userRequisites: &interfaces.Requisites{
-// 			Login:    "Joe",
-// 			Password: "aaa",
-// 		},
-// 		retErrSel1:  sql.ErrTxDone,
-// 		retRowsSel1: []*sqlmock.Rows{},
-// 		want:        iderr{id: 0, err: sql.ErrTxDone},
-// 	},
-// 	&commonTestCase{
-// 		name: "login not found",
-// 		userRequisites: &interfaces.Requisites{
-// 			Login:    "Joe",
-// 			Password: "aaa",
-// 		},
-// 		retErrSel1:  sql.ErrNoRows,
-// 		retRowsSel1: []*sqlmock.Rows{},
-// 		want:        iderr{id: 0, err: interfaces.ErrLogin},
-// 	},
-// 	&commonTestCase{
-// 		name: "wrong password",
-// 		userRequisites: &interfaces.Requisites{
-// 			Login:    "Joe",
-// 			Password: "aaa",
-// 		},
-// 		retRowsSel1: []*sqlmock.Rows{
-// 			sqlmock.NewRows([]string{"id", "password"}).
-// 				AddRow(1, "bbb")},
-// 		want: iderr{id: 0, err: interfaces.ErrPassword},
-// 	},
-// }
+var removeTests = []*commonTestCase{
+	&commonTestCase{
+		name:           "some query error",
+		userRequisites: joe,
+		retErrSel1:     sql.ErrTxDone,
+		retRowsSel1:    []*sqlmock.Rows{},
+		want:           iderr{id: 0, err: sql.ErrTxDone},
+	},
+	&commonTestCase{
+		name:           "login not found",
+		userRequisites: joe,
+		retErrSel1:     sql.ErrNoRows,
+		retRowsSel1:    []*sqlmock.Rows{},
+		want:           iderr{id: 0, err: interfaces.ErrLogin},
+	},
+	&commonTestCase{
+		name:           "wrong password",
+		userRequisites: joe,
+		retRowsSel1: []*sqlmock.Rows{
+			sqlmock.NewRows([]string{"id", "password"}).
+				AddRow(1, joe.Password+"FFF")},
+		want: iderr{id: 0, err: interfaces.ErrPassword},
+	},
+	&commonTestCase{
+		name:           "some exec error",
+		userRequisites: joe,
+		retRowsSel1: []*sqlmock.Rows{
+			sqlmock.NewRows([]string{"id", "password"}).
+				AddRow(1, joe.Password)},
+		retErrSel2: sql.ErrTxDone,
+		returnedID: 1,
+		retResult2: sqlmock.NewResult(0, 0),
+		want:       iderr{id: 0, err: sql.ErrTxDone},
+	},
+	&commonTestCase{
+		name:           "some RowsAffected error",
+		userRequisites: joe,
+		retRowsSel1: []*sqlmock.Rows{
+			sqlmock.NewRows([]string{"id", "password"}).
+				AddRow(1, joe.Password)},
+		returnedID: 1,
+		retResult2: sqlmock.NewErrorResult(errSome),
+		want:       iderr{id: 0, err: errSome},
+	},
+	&commonTestCase{
+		name:           "some RowsAffected error",
+		userRequisites: joe,
+		retRowsSel1: []*sqlmock.Rows{
+			sqlmock.NewRows([]string{"id", "password"}).
+				AddRow(1, joe.Password)},
+		returnedID: 1,
+		retResult2: sqlmock.NewResult(0, 0),
+		want:       iderr{id: 0, err: postgres.ErrModificationResult},
+	},
+	&commonTestCase{
+		name:           "success",
+		userRequisites: joe,
+		retRowsSel1: []*sqlmock.Rows{
+			sqlmock.NewRows([]string{"id", "password"}).
+				AddRow(1, joe.Password)},
+		returnedID: 1,
+		retResult2: sqlmock.NewResult(1, 1),
+		want:       iderr{id: 1, err: nil},
+	},
+}
+
+var changeRequisitesTests = []*commonTestCase{
+	&commonTestCase{
+		name:              "some query error",
+		userRequisites:    joe,
+		newUserRequisites: nick,
+		retErrSel1:        sql.ErrTxDone,
+		retRowsSel1:       []*sqlmock.Rows{},
+		want:              iderr{err: sql.ErrTxDone},
+	},
+	&commonTestCase{
+		name:              "login not found",
+		userRequisites:    joe,
+		newUserRequisites: nick,
+		retErrSel1:        sql.ErrNoRows,
+		retRowsSel1:       []*sqlmock.Rows{},
+		want:              iderr{err: interfaces.ErrLogin},
+	},
+	&commonTestCase{
+		name:              "wrong password",
+		userRequisites:    joe,
+		newUserRequisites: nick,
+		retRowsSel1: []*sqlmock.Rows{
+			sqlmock.NewRows([]string{"id", "username", "password"}).
+				AddRow(1, joe.Login, joe.Password+"FFF")},
+		want: iderr{err: interfaces.ErrPassword},
+	},
+	&commonTestCase{
+		name:              "login occupied",
+		userRequisites:    joe,
+		newUserRequisites: nick,
+		retRowsSel1: []*sqlmock.Rows{
+			sqlmock.NewRows([]string{"id", "username", "password"}).
+				AddRow(1, joe.Login, joe.Password).
+				AddRow(2, nick.Login, nick.Password)},
+		want: iderr{err: interfaces.ErrLoginOccupied},
+	},
+	&commonTestCase{
+		name:              "some exec error",
+		userRequisites:    joe,
+		newUserRequisites: nick,
+		retRowsSel1: []*sqlmock.Rows{
+			sqlmock.NewRows([]string{"id", "username", "password"}).
+				AddRow(1, joe.Login, joe.Password)},
+		retErrSel2: sql.ErrTxDone,
+		returnedID: 1,
+		retResult2: sqlmock.NewResult(0, 0),
+		want:       iderr{err: sql.ErrTxDone},
+	},
+	&commonTestCase{
+		name:              "some RowsAffected error",
+		userRequisites:    joe,
+		newUserRequisites: nick,
+		retRowsSel1: []*sqlmock.Rows{
+			sqlmock.NewRows([]string{"id", "username", "password"}).
+				AddRow(1, joe.Login, joe.Password)},
+		returnedID: 1,
+		retResult2: sqlmock.NewErrorResult(errSome),
+		want:       iderr{err: errSome},
+	},
+	&commonTestCase{
+		name:              "some RowsAffected error",
+		userRequisites:    joe,
+		newUserRequisites: nick,
+		retRowsSel1: []*sqlmock.Rows{
+			sqlmock.NewRows([]string{"id", "username", "password"}).
+				AddRow(1, joe.Login, joe.Password)},
+		returnedID: 1,
+		retResult2: sqlmock.NewResult(0, 0),
+		want:       iderr{err: postgres.ErrModificationResult},
+	},
+	&commonTestCase{
+		name:              "chNamePas success",
+		userRequisites:    joe,
+		newUserRequisites: nick,
+		retRowsSel1: []*sqlmock.Rows{
+			sqlmock.NewRows([]string{"id", "username", "password"}).
+				AddRow(1, joe.Login, joe.Password)},
+		returnedID: 1,
+		retResult2: sqlmock.NewResult(1, 1),
+		want:       iderr{err: nil},
+	},
+	&commonTestCase{
+		name:              "chPas success",
+		userRequisites:    joe,
+		newUserRequisites: joePas,
+		retRowsSel1: []*sqlmock.Rows{
+			sqlmock.NewRows([]string{"id", "username", "password"}).
+				AddRow(1, joe.Login, joe.Password)},
+		returnedID: 1,
+		retResult2: sqlmock.NewResult(1, 1),
+		want:       iderr{err: nil},
+	},
+}
 
 func TestNewPgx(t *testing.T) {
 	conData := &postgres.ConnectionData{
@@ -230,7 +344,7 @@ func performAuthorizeTest(t *testing.T, test *commonTestCase) {
 	authorizator, mock := initMock(t)
 	defer authorizator.Close()
 
-	mock.ExpectQuery("select id, password from users where name = \\? limit 1").
+	mock.ExpectQuery("select id, password from users where username = \\? limit 1").
 		WithArgs(test.userRequisites.Login).
 		WillReturnRows(test.retRowsSel1...).
 		WillReturnError(test.retErrSel1)
@@ -267,7 +381,7 @@ func performRegisterTest(t *testing.T, test *commonTestCase) {
 
 func makeRegisterExpectations(mock sqlmock.Sqlmock, test *commonTestCase) {
 	mock.ExpectBegin()
-	mock.ExpectQuery("select id from users where name = \\? limit 1").
+	mock.ExpectQuery("select id from users where username = \\? limit 1").
 		WithArgs(test.userRequisites.Login).
 		WillReturnRows(test.retRowsSel1...).
 		WillReturnError(test.retErrSel1)
@@ -284,46 +398,90 @@ func makeRegisterExpectations(mock sqlmock.Sqlmock, test *commonTestCase) {
 	}
 }
 
-// func TestRemove(t *testing.T) {
-// 	for _, test := range removeTests {
-// 		t.Run(test.name, func(t *testing.T) {
-// 			performRemoveTest(t, test)
-// 		})
-// 	}
-// }
+func TestRemove(t *testing.T) {
+	for _, test := range removeTests {
+		t.Run(test.name, func(t *testing.T) {
+			performRemoveTest(t, test)
+		})
+	}
+}
 
-// func performRemoveTest(t *testing.T, test *commonTestCase) {
-// 	authorizator, mock := initMock(t)
-// 	defer authorizator.Close()
+func performRemoveTest(t *testing.T, test *commonTestCase) {
+	authorizator, mock := initMock(t)
+	defer authorizator.Close()
 
-// 	makeRemoveExpectations(mock, test)
+	makeRemoveExpectations(mock, test)
 
-// 	id, err := authorizator.Remove(test.userRequisites)
+	id, err := authorizator.Remove(test.userRequisites)
 
-// 	testIDErr(t, test.want, iderr{id: id, err: err})
-// 	if err := mock.ExpectationsWereMet(); err != nil {
-// 		t.Errorf("there were unfulfilled expectations: %s", err)
-// 	}
-// }
+	testIDErr(t, test.want, iderr{id: id, err: err})
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
 
-// func makeRemoveExpectations(mock sqlmock.Sqlmock, test *commonTestCase) {
-// 	mock.ExpectBegin()
-// 	mock.ExpectQuery("select id, password from users where name = \\? limit 1").
-// 		WithArgs(test.userRequisites.Login).
-// 		WillReturnRows(test.retRowsSel1...).
-// 		WillReturnError(test.retErrSel1)
-// 	// if test.retErrSel1 == sql.ErrNoRows {
-// 	// 	mock.ExpectExec("INSERT INTO users \\(id,username,password\\) VALUES\\(DEFAULT,\\?,\\?\\)").
-// 	// 		WithArgs(test.userRequisites.Login, test.userRequisites.Password).
-// 	// 		WillReturnResult(test.retResultExec2).
-// 	// 		WillReturnError(test.retErrSel2)
-// 	// }
-// 	if test.name == "success" {
-// 		mock.ExpectCommit()
-// 	} else {
-// 		mock.ExpectRollback()
-// 	}
-// }
+func makeRemoveExpectations(mock sqlmock.Sqlmock, test *commonTestCase) {
+	mock.ExpectBegin()
+	mock.ExpectQuery("select id, password from users where username = \\? limit 1").
+		WithArgs(test.userRequisites.Login).
+		WillReturnRows(test.retRowsSel1...).
+		WillReturnError(test.retErrSel1)
+	if test.retErrSel1 == nil && test.name != "wrong password" {
+		mock.ExpectExec("DELETE FROM users WHERE id=\\?").
+			WithArgs(test.returnedID).
+			WillReturnResult(test.retResult2).
+			WillReturnError(test.retErrSel2)
+	}
+	if test.name == "success" {
+		mock.ExpectCommit()
+	} else {
+		mock.ExpectRollback()
+	}
+}
+
+func TestChangeRequisites(t *testing.T) {
+	for _, test := range changeRequisitesTests {
+		t.Run(test.name, func(t *testing.T) {
+			performChangeRequisitesTest(t, test)
+		})
+	}
+}
+
+func performChangeRequisitesTest(t *testing.T, test *commonTestCase) {
+	authorizator, mock := initMock(t)
+	defer authorizator.Close()
+
+	makeChangeRequisitesExpectations(mock, test)
+
+	err := authorizator.ChangeRequisites(test.userRequisites, test.newUserRequisites)
+
+	testErr(t, test.want.err, err)
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func makeChangeRequisitesExpectations(mock sqlmock.Sqlmock, test *commonTestCase) {
+	mock.ExpectBegin()
+
+	mock.ExpectQuery("select id, username, password from users where username IN \\(\\?,\\?\\)").
+		WithArgs(test.userRequisites.Login, test.newUserRequisites.Login).
+		WillReturnRows(test.retRowsSel1...).
+		WillReturnError(test.retErrSel1)
+
+	if test.retErrSel1 == nil && test.name != "wrong password" && test.name != "login occupied" {
+		mock.ExpectExec("UPDATE users SET username=\\?,password=\\? WHERE id=\\?").
+			WithArgs(test.newUserRequisites.Login, test.newUserRequisites.Password, test.returnedID).
+			WillReturnResult(test.retResult2).
+			WillReturnError(test.retErrSel2)
+	}
+
+	if test.name == "chNamePas success" || test.name == "chPas success" {
+		mock.ExpectCommit()
+	} else {
+		mock.ExpectRollback()
+	}
+}
 
 func initMock(t *testing.T) (*postgres.Authorizator, sqlmock.Sqlmock) {
 	db, mock, err := sqlmock.New()
@@ -341,5 +499,10 @@ func testIDErr(t *testing.T, want, got iderr) {
 	}
 	if !errors.Is(got.err, want.err) {
 		t.Errorf("Unexpected err:\nwant: %v,\ngot: %v.", want.err, got.err)
+	}
+}
+func testErr(t *testing.T, want, got error) {
+	if !errors.Is(got, want) {
+		t.Errorf("Unexpected err:\nwant: %v,\ngot: %v.", want, got)
 	}
 }

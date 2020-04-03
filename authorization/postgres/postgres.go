@@ -75,7 +75,7 @@ func (authorizator *Authorizator) Close() error {
 // Authorize attempts to authorize a user and returns the id if success
 func (authorizator *Authorizator) Authorize(requisites *interfaces.Requisites) (id int, err error) {
 	var password string
-	err = authorizator.db.QueryRow("select id, password from users where name = ? limit 1", requisites.Login).Scan(&id, &password)
+	err = authorizator.db.QueryRow("select id, password from users where username = ? limit 1", requisites.Login).Scan(&id, &password)
 
 	if err := checkAuthorization(password, requisites.Password, err); err != nil {
 		return 0, err
@@ -94,7 +94,7 @@ func (authorizator *Authorizator) Register(requisites *interfaces.Requisites) (i
 		err = closeTransaction(tx, err)
 	}()
 
-	err = tx.QueryRow("select id from users where name = ? limit 1", requisites.Login).Scan(&id)
+	err = tx.QueryRow("select id from users where username = ? limit 1", requisites.Login).Scan(&id)
 	if err != sql.ErrNoRows {
 		if err != nil {
 			return 0, err
@@ -111,32 +111,109 @@ func (authorizator *Authorizator) Register(requisites *interfaces.Requisites) (i
 	return id, nil
 }
 
-// // Remove attempts to remove a user and returns the id if success
-// func (authorizator *Authorizator) Remove(requisites *interfaces.Requisites) (id int, err error) {
-// 	tx, err := authorizator.db.Begin()
-// 	if err != nil {
-// 		return 0, err
-// 	}
-// 	defer func() {
-// 		err = closeTransaction(tx, err)
-// 	}()
+// Remove attempts to remove a user and returns the id if success
+func (authorizator *Authorizator) Remove(requisites *interfaces.Requisites) (id int, err error) {
+	tx, err := authorizator.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer func() {
+		err = closeTransaction(tx, err)
+	}()
 
-// 	var password string
-// 	err = tx.QueryRow("select id, password from users where name = ? limit 1", requisites.Login).Scan(&id, &password)
-// 	if err := checkAuthorization(password, requisites.Password, err); err != nil {
-// 		return 0, err
-// 	}
+	var password string
+	err = tx.QueryRow("select id, password from users where username = ? limit 1", requisites.Login).Scan(&id, &password)
+	if err := checkAuthorization(password, requisites.Password, err); err != nil {
+		return 0, err
+	}
 
-// 	result, err := tx.Exec("DELETE FROM users (id,username,password) VALUES(DEFAULT,?,?)", requisites.Login, requisites.Password)
+	result, err := tx.Exec("DELETE FROM users WHERE id=?", id)
+	if err := checkResult(result, err); err != nil {
+		return 0, err
+	}
 
-// 	err = tx.QueryRow("DELETE FROM users (id,username,password) VALUES(DEFAULT,?,?) RETURNING id",
-// 		requisites.Login, requisites.Password).Scan(&id)
-// 	if err := checkModification(id, err); err != nil {
-// 		return 0, err
-// 	}
+	return id, nil
+}
 
-// 	return 0, nil
-// }
+// ChangeRequisites changes requisites of user from requisitesOld to requisitesNew
+func (authorizator *Authorizator) ChangeRequisites(requisitesOld, requisitesNew *interfaces.Requisites) (err error) {
+	tx, err := authorizator.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = closeTransaction(tx, err)
+	}()
+
+	rows, err := tx.Query("select id, username, password from users where username IN (?,?)", requisitesOld.Login, requisitesNew.Login)
+	id, err := processRows(rows, err, requisitesOld, requisitesNew)
+	if err != nil {
+		return err
+	}
+
+	result, err := tx.Exec("UPDATE users SET username=?,password=? WHERE id=?", requisitesNew.Login, requisitesNew.Password, id)
+	if err := checkResult(result, err); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func processRows(rows *sql.Rows, err error, requisitesOld, requisitesNew *interfaces.Requisites) (int, error) {
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, interfaces.ErrLogin
+		}
+		return 0, err
+	}
+	defer rows.Close()
+
+	var (
+		password, username string
+		id, tmpid          int
+	)
+
+	for rows.Next() {
+		err := rows.Scan(&tmpid, &username, &password)
+		if err != nil {
+			return 0, err
+		}
+		if username == requisitesNew.Login && requisitesNew.Login != requisitesOld.Login {
+			return 0, interfaces.ErrLoginOccupied
+		}
+
+		if username == requisitesOld.Login {
+			if requisitesOld.Password != password {
+				return 0, interfaces.ErrPassword
+			}
+			id = tmpid
+		}
+	}
+
+	err = rows.Err()
+	if err != nil {
+		return 0, err
+	}
+
+	if id < 1 {
+		return 0, interfaces.ErrLogin
+	}
+	return id, nil
+}
+
+func checkResult(result sql.Result, err error) error {
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected != 1 {
+		return fmt.Errorf("%w: unexpected number of rows affected: %d", ErrModificationResult, rowsAffected)
+	}
+	return nil
+}
 
 func closeTransaction(tx *sql.Tx, err error) error {
 	if err != nil {
