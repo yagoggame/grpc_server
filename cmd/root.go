@@ -28,6 +28,7 @@ import (
 	"github.com/yagoggame/gomaster"
 	"github.com/yagoggame/grpc_server/authorization/dummy"
 	"github.com/yagoggame/grpc_server/authorization/filemap"
+	"github.com/yagoggame/grpc_server/authorization/postgres"
 	"github.com/yagoggame/grpc_server/cmd/server"
 	"github.com/yagoggame/grpc_server/interfaces"
 	"google.golang.org/grpc"
@@ -39,7 +40,7 @@ import (
 
 var (
 	cfgFile                  string
-	acceptedAuthorizator     = []string{"dummy", "filemap"}
+	acceptedAuthorizator     = []string{"dummy", "filemap", "postgresql"}
 	acceptedAuthorizatorFlag = newOfist(acceptedAuthorizator)
 )
 
@@ -105,6 +106,18 @@ func init() {
 	viper.BindPFlag("authorizator", rootCmd.Flag("authorizator"))
 	rootCmd.PersistentFlags().StringP("filename", "F", "", "filename to be used by filemap authorizator")
 	viper.BindPFlag("filename", rootCmd.Flag("filename"))
+
+	rootCmd.PersistentFlags().StringP("dbhost", "H", "localhost", "host of database used by postgresql authorizator")
+	viper.BindPFlag("dbhost", rootCmd.Flag("dbhost"))
+	rootCmd.PersistentFlags().IntP("dbport", "P", 5432, "port of database used by postgresql authorizator")
+	viper.BindPFlag("dbport", rootCmd.Flag("dbport"))
+	rootCmd.PersistentFlags().StringP("dbname", "D", "", "name of database used by postgresql authorizator")
+	viper.BindPFlag("dbname", rootCmd.Flag("dbname"))
+	rootCmd.PersistentFlags().StringP("dbuser", "U", "", "user with access to database used by postgresql authorizator")
+	viper.BindPFlag("dbuser", rootCmd.Flag("dbuser"))
+	rootCmd.PersistentFlags().StringP("dbpassword", "S", "", "password of user with access to database used by postgresql authorizator")
+	viper.BindPFlag("dbpassword", rootCmd.Flag("dbpassword"))
+
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -145,6 +158,12 @@ func iniFromViper(initData *server.IniDataContainer, command *cobra.Command) {
 	}
 
 	initData.Filename = viper.GetString("filename")
+
+	initData.DBHost = viper.GetString("dbhost")
+	initData.DBPort = viper.GetInt("dbport")
+	initData.DBName = viper.GetString("dbname")
+	initData.DBUser = viper.GetString("dbuser")
+	initData.DBPassword = viper.GetString("dbpassword")
 }
 
 func createServer(initData *server.IniDataContainer) (net.Listener, *grpc.Server) {
@@ -191,6 +210,19 @@ func getAuthorizator(initData *server.IniDataContainer) interfaces.Authorizator 
 		authorizator, err := filemap.New(initData.Filename)
 		if err != nil {
 			log.Fatalf("failed to create filemap authorizator: %s", err)
+		}
+		return authorizator
+	case "postgresql":
+		conData := &postgres.ConnectionData{
+			Host:     initData.DBHost,
+			Port:     initData.DBPort,
+			DBname:   initData.DBName,
+			User:     initData.DBUser,
+			Password: initData.DBPassword,
+		}
+		authorizator, err := postgres.NewPgx(conData)
+		if err != nil {
+			log.Fatalf("failed to create postgresql authorizator: %s", err)
 		}
 		return authorizator
 	}
